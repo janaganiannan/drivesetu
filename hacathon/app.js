@@ -1,3 +1,8 @@
+function safeParseJSON(str, fallback) {
+    if (!str || typeof str !== 'string') return fallback !== undefined ? fallback : null;
+    try { return JSON.parse(str); } catch(e) { return fallback !== undefined ? fallback : null; }
+}
+
 // ─── MOCK DATA ───
 var applications = [
     {
@@ -179,7 +184,7 @@ function allocateDualEvaluators(testRtoCode) {
 
 // ─── EVALUATOR DECISION SUBMISSION (Role-Guarded, Blind) ───
 function submitEvaluatorDecision(appId, decision, reason) {
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     if (!session || session.role !== 'REVIEWING_OFFICER') {
         alert('⛔ ACCESS DENIED: Only authorized Independent Evaluators can submit decisions.'); return;
     }
@@ -268,7 +273,7 @@ function submitEvaluatorDecision(appId, decision, reason) {
 
 // ─── ADJUDICATOR DECISION SUBMISSION ───
 function submitAdjudicatorDecision(appId, decision, reason) {
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     if (!session || session.role !== 'REVIEWING_OFFICER') { alert('⛔ ACCESS DENIED.'); return; }
     if (!reason || reason.trim() === '') { alert('⚠️ Mandatory reason required.'); return; }
     var apps = getStoredApplications();
@@ -310,7 +315,7 @@ function submitAdjudicatorDecision(appId, decision, reason) {
 
 // ─── ADMIN ESCALATION (Governance Only — Cannot Change Decision) ───
 function adminEscalateForReview(appId) {
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     if (!session || session.role !== 'ADMIN') { alert('⛔ Only System Administrators can request independent review.'); return; }
     var reason = prompt('Enter reason for requesting an independent governance review.\n\nIMPORTANT: System Administrators CANNOT alter or override evaluator decisions.');
     if (!reason || reason.trim() === '') return;
@@ -734,82 +739,11 @@ function getStoredApplications() {
             }
         });
         modified = true;
-    // Ensure Sufyan has an Approved Learner's Licence issued >30 days ago (10 May 2026)
-    var hasSufyanLL = false;
-    for (var s = 0; s < apps.length; s++) {
-        var _appS = apps[s];
-        if (_appS.type === "Learner's Licence" && ((_appS.citizenId && _appS.citizenId.toLowerCase().includes('sufyan')) || (_appS.name && _appS.name.toLowerCase().includes('sufyan')) || _appS.id === 'LL-SUFYAN-001')) {
-            hasSufyanLL = true;
-            _appS.status = 'Approved';
-            _appS.date = '10 May 2026';
-            if (!_appS.serviceDetails) _appS.serviceDetails = {};
-            _appS.serviceDetails.issueDate = '10 May 2026';
-            _appS.serviceDetails.validity = '10 May 2026 to 10 Nov 2026';
-            _appS.serviceDetails.llNumber = _appS.id || 'LL-SUFYAN-001';
-            modified = true;
+    }
+    for (var d = 0; d < apps.length; d++) {
+        if (apps[d].id === 'APP-101' && apps[d].type === "Learner's Licence") {
+            if (!apps[d].citizenId) { apps[d].citizenId = 'citizen@drivesetu.com'; modified = true; }
         }
-    }
-
-    if (!hasSufyanLL) {
-        apps.unshift({
-            id: 'LL-SUFYAN-001',
-            name: 'Sufyan',
-            type: "Learner's Licence",
-            status: 'Approved',
-            date: '10 May 2026',
-            citizenId: 'sufyan@gmail.com',
-            vehicleClasses: ['MCWG', 'LMV'],
-            serviceDetails: {
-                rtoCode: 'TG-03',
-                rtoOfficeName: 'RTA Medchal / Hyderabad West',
-                rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-                vehicleClasses: ['MCWG', 'LMV'],
-                vehicleClass: 'MCWG, LMV',
-                llNumber: 'LL-SUFYAN-001',
-                issueDate: '10 May 2026',
-                validity: '10 May 2026 to 10 Nov 2026'
-            }
-        });
-        modified = true;
-    }
-
-    // Ensure Siddu has an Approved Learner's Licence issued >30 days ago (10 May 2026)
-    var hasSidduLL = false;
-    for (var sd = 0; sd < apps.length; sd++) {
-        var _appSd = apps[sd];
-        if (_appSd.type === "Learner's Licence" && ((_appSd.citizenId && _appSd.citizenId.toLowerCase().includes('siddu')) || (_appSd.name && _appSd.name.toLowerCase().includes('siddu')) || _appSd.id === 'LL-SIDDU-001')) {
-            hasSidduLL = true;
-            _appSd.status = 'Approved';
-            _appSd.date = '10 May 2026';
-            if (!_appSd.serviceDetails) _appSd.serviceDetails = {};
-            _appSd.serviceDetails.issueDate = '10 May 2026';
-            _appSd.serviceDetails.validity = '10 May 2026 to 10 Nov 2026';
-            _appSd.serviceDetails.llNumber = _appSd.id || 'LL-SIDDU-001';
-            modified = true;
-        }
-    }
-
-    if (!hasSidduLL) {
-        apps.unshift({
-            id: 'LL-SIDDU-001',
-            name: 'Siddu',
-            type: "Learner's Licence",
-            status: 'Approved',
-            date: '10 May 2026',
-            citizenId: 'siddu@gmail.com',
-            vehicleClasses: ['MCWG', 'LMV'],
-            serviceDetails: {
-                rtoCode: 'TG-05',
-                rtoOfficeName: 'RTA Secunderabad / Hyderabad North',
-                rtoAddress: 'Secunderabad RTO, Hyderabad',
-                vehicleClasses: ['MCWG', 'LMV'],
-                vehicleClass: 'MCWG, LMV',
-                llNumber: 'LL-SIDDU-001',
-                issueDate: '10 May 2026',
-                validity: '10 May 2026 to 10 Nov 2026'
-            }
-        });
-        modified = true;
     }
     if (modified) {
         saveStoredApplications(apps);
@@ -1593,13 +1527,13 @@ function render() {
     var storedApps = getStoredApplications();
 
     var _csRaw = sessionStorage.getItem('citizenSession');
-    var _cs = _csRaw ? JSON.parse(_csRaw) : null;
+    var _cs = safeParseJSON(_csRaw, null);
 
     var _rsRaw = sessionStorage.getItem('rtoSession');
     var _rs = null;
     if (_rsRaw) {
         try {
-            _rs = typeof _rsRaw === 'string' && _rsRaw.indexOf('{') === 0 ? JSON.parse(_rsRaw) : { role: 'ADMIN', rtoCode: 'ALL', name: 'RTO Authority', initials: 'ADM' };
+            _rs = typeof _rsRaw === 'string' && _rsRaw.indexOf('{') === 0 ? safeParseJSON(_rsRaw, null) : { role: 'ADMIN', rtoCode: 'ALL', name: 'RTO Authority', initials: 'ADM' };
         } catch(e) {
             _rs = { role: 'ADMIN', rtoCode: 'ALL', name: 'RTO Authority', initials: 'ADM' };
         }
@@ -1607,7 +1541,7 @@ function render() {
 
     // Sidebar nav items (Citizen - Only citizen actions, NO Test Centre Portal)
     // Compute dynamic pending task count from citizen applications
-    var _ptSession = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+    var _ptSession = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
     var _pendingTaskCount = 0;
     if (_ptSession) {
         var _ptApps = getStoredApplications();
@@ -1943,7 +1877,7 @@ function render() {
             if (_rs.role === 'TEST_CENTRE_OPERATOR') {
                 pageContent = renderTestCentrePage();
             } else {
-                pageContent = renderRTOPage();
+                pageContent = renderAdminDashboard();
             }
         } else {
             pageContent = '' +
@@ -1972,7 +1906,7 @@ function render() {
     }
 
     else if (isCitizen) {
-        var session = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+        var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
         if (!session) {
             pageContent =
                 '<div class="animate-in" style="max-width:480px; margin:3rem auto; text-align:center;">' +
@@ -2003,9 +1937,7 @@ function render() {
     }
 
     else if (isCitizenTrack) {
-        var _citizenSession = sessionStorage.getItem('citizenSession')
-            ? JSON.parse(sessionStorage.getItem('citizenSession'))
-            : null;
+        var _citizenSession = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
 
         if (!_citizenSession) {
             pageContent = '<div class="animate-in" style="max-width:480px; margin:3rem auto; text-align:center;">' +
@@ -2137,7 +2069,7 @@ function render() {
     }
 
     else if (isPendingTasks) {
-        var _ptSess = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+        var _ptSess = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
         if (!_ptSess) {
             pageContent = '<div class="animate-in" style="max-width:480px; margin:3rem auto; text-align:center;">' +
                 '<div class="card" style="padding:2.5rem 2rem;">' +
@@ -2266,7 +2198,7 @@ function render() {
     }
 
     else if (isCitizenDrivingTest) {
-        var _cSession = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+        var _cSession = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
         if (!_cSession) {
             pageContent = '<div class="animate-in" style="max-width:480px; margin:3rem auto; text-align:center;">' +
                 '<div class="card" style="padding:2.5rem 2rem;">' +
@@ -2572,7 +2504,7 @@ function render() {
 
     if (isCitizenTrack) {
         setTimeout(function() {
-            trackStatus();
+            try { trackStatus(); } catch(e) {}
         }, 50);
     }
 }
@@ -2705,9 +2637,9 @@ function quickTrack(id) {
 }
 
 function trackStatus() {
-    var input = document.getElementById('trackInput');
-    if (!input) return;
-    var id = input.value.trim().toUpperCase();
+    var input = document.getElementById('trackInput') || document.getElementById('trackAppIdInput');
+    if (!input || !input.value) return;
+    var id = String(input.value).trim().toUpperCase();
     if (!id) return;
 
     var apps = getStoredApplications();
@@ -2733,9 +2665,7 @@ function trackStatus() {
     }
 
     // Security: Only allow tracking for the logged-in citizen
-    var _citizenSession = sessionStorage.getItem('citizenSession')
-        ? JSON.parse(sessionStorage.getItem('citizenSession'))
-        : null;
+    var _citizenSession = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
     if (_citizenSession) {
         if (app.citizenId && app.citizenId !== _citizenSession.email && app.citizenId !== _citizenSession.appId) {
             alert('Access Denied: You can only track your own applications.');
@@ -3262,7 +3192,7 @@ function submitUploadedReports() {
     if (!pdfName || pdfName === 'No PDF report selected') pdfName = appId + '_AIReport.pdf';
 
     // Get the citizen's licence type from session
-    var _cs = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : {};
+    var _cs = safeParseJSON(sessionStorage.getItem('citizenSession'), {});
     var licenceType = _cs.licenceType || 'Licence';
 
     // Today's date
@@ -3342,7 +3272,7 @@ function toggleDeclineRemarkBox() {
 }
 
 function approveAppFromModal(appId) {
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     if (!session || session.role !== 'REVIEWING_OFFICER') {
         alert('⛔ ACCESS DENIED: Only reviewing officers can perform this action.');
         return;
@@ -3384,7 +3314,7 @@ function approveAppFromModal(appId) {
 }
 
 function confirmDeclineFromModal(appId) {
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     if (!session || session.role !== 'REVIEWING_OFFICER') {
         alert('⛔ ACCESS DENIED: Only reviewing officers can perform this action.');
         return;
@@ -3473,7 +3403,7 @@ function buildReviewModalHTML(appId) {
         }
     }
 
-    var session = sessionStorage.getItem('rtoSession') ? JSON.parse(sessionStorage.getItem('rtoSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     var isAdmin = session && session.role === 'ADMIN';
     var isReviewer = session && session.role === 'REVIEWING_OFFICER';
 
@@ -4852,16 +4782,12 @@ function checkCitizenDLEligibility(session, requestedClasses) {
     // 2. Check if citizen has a valid Learner's Licence
     var matchedLL = null;
     var isDemoAccount = (session.email === 'citizen@drivesetu.com' || session.email === 'demo@drivesetu.com');
-    var isSufyanSession = (session.email && session.email.toLowerCase().includes('sufyan')) || (session.name && session.name.toLowerCase().includes('sufyan'));
-    var isSidduSession = (session.email && session.email.toLowerCase().includes('siddu')) || (session.name && session.name.toLowerCase().includes('siddu'));
 
     for (var j = 0; j < apps.length; j++) {
         var llApp = apps[j];
         if (llApp.type === "Learner's Licence" && (llApp.status === 'Approved' || llApp.status === 'Issued' || llApp.status === 'Valid' || llApp.status === 'Submitted' || llApp.status === 'Pending')) {
             var isOwner = (llApp.citizenId === session.email || llApp.citizenId === session.appId || (session.name && llApp.name === session.name));
-            var isSufyanLL = isSufyanSession && (llApp.id === 'LL-SUFYAN-001' || (llApp.citizenId && llApp.citizenId.toLowerCase().includes('sufyan')));
-            var isSidduLL = isSidduSession && (llApp.id === 'LL-SIDDU-001' || (llApp.citizenId && llApp.citizenId.toLowerCase().includes('siddu')));
-            if (isOwner || isSufyanLL || isSidduLL || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
+            if (isOwner || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
                 matchedLL = llApp;
                 break;
             }
@@ -4958,7 +4884,7 @@ function searchLlForPermanent() {
         return;
     }
 
-    var session = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
     if (!session) {
         alert('Authentication error. Please log in again.');
         return;
@@ -5717,7 +5643,7 @@ function toggleDuplicateFields() {
 // ─── SERVICE FORMS SUBMISSION & SUCCESS RENDERING ───
 
 function submitServiceForm(licenceType) {
-    var session = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+    var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
     if (!session) {
         alert('Authentication error. Please log in again.');
         return;
@@ -6172,7 +6098,7 @@ function submitServiceForm(licenceType) {
 
 function renderSubmissionSuccess(app, nextStep) {
     var appDiv = document.getElementById('app');
-    var _cs = sessionStorage.getItem('citizenSession') ? JSON.parse(sessionStorage.getItem('citizenSession')) : null;
+    var _cs = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
     var userInfo = _cs ? { initials: _cs.initials, name: _cs.name, role: 'Citizen (' + _cs.appId + ')' } : null;
     var logoutBtnHTML = _cs ? '<button class="btn-logout" onclick="handleLogout(\'#citizen-login\')"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>' : '';
     

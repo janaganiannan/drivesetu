@@ -2,8 +2,8 @@
 const SUPABASE_URL = 'https://iawqdbsejkmxtilmgztc.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_0E2RZIe-_lShtIjeR_YysA_0ZNRl3rF';
 
-// Initialize Supabase Client
-const supabaseClient = (typeof supabase !== 'undefined') 
+// Initialize Supabase Client safely
+const supabaseClient = (typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') 
     ? supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) 
     : null;
 
