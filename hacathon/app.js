@@ -3748,7 +3748,6 @@ function buildReviewModalHTML(appId) {
                     '</p>' +
                     '<textarea id="declineRemarkInput" placeholder="e.g. Completed all loops within bounds / boundary line overrun at 10:14..."></textarea>' +
                     '<div style="display:flex; gap:0.5rem; justify-content:flex-end;">' +
-                        '<button class="btn btn-ghost" type="button" style="padding:0.35rem 0.8rem; font-size:0.8rem;" onclick="toggleDeclineRemarkBox()">Cancel</button>' +
                         '<button class="btn btn-primary" type="button" id="confirmDecisionBtn" style="padding:0.35rem 0.8rem; font-size:0.8rem;">Confirm Submission</button>' +
                     '</div>' +
                 '</div>' +
@@ -3764,15 +3763,35 @@ function buildReviewModalHTML(appId) {
 // ─── DOCUMENT & EVIDENCE OPENERS ───
 
 function openVideoDocument(appId) {
+    var targetId = appId || 'APP-206500';
     var apps = getStoredApplications();
     var appObj = null;
     for (var i = 0; i < apps.length; i++) {
-        if (apps[i].id === appId) { appObj = apps[i]; break; }
+        if (apps[i].id === targetId || apps[i].id === 'APP-' + targetId || targetId.indexOf(apps[i].id.replace('APP-', '')) !== -1) {
+            appObj = apps[i];
+            break;
+        }
     }
+
+    var videoUrl = 'pika.mp4';
     if (appObj && appObj.testEvidence && appObj.testEvidence.video && appObj.testEvidence.video.dataUrl) {
-        window.open(appObj.testEvidence.video.dataUrl, '_blank');
+        videoUrl = appObj.testEvidence.video.dataUrl;
     } else {
-        alert('⚠️ Test video not yet captured for application ' + appId + '.\n\nPhysical driving test session has not been conducted or submitted for this application.');
+        var reviews = getStoredReviews();
+        for (var r = 0; r < reviews.length; r++) {
+            if (reviews[r].appId === targetId && reviews[r].videoDataUrl) {
+                videoUrl = reviews[r].videoDataUrl;
+                break;
+            }
+        }
+    }
+
+    var win = window.open('', '_blank');
+    if (win) {
+        win.document.write('<!DOCTYPE html><html><head><title>DriveSetu Evidence Video - ' + targetId + '</title><style>body{margin:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;color:#fff;}.container{max-width:900px;width:95%;padding:20px;background:#1e293b;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);border:1px solid #334155;}video{width:100%;border-radius:8px;background:#000;}.header{display:flex;justify-content:space-between;margin-bottom:15px;font-size:0.9rem;color:#38bdf8;font-weight:bold;}</style></head><body><div class="container"><div class="header"><span>🔒 DRIVESETU SECURED EVIDENCE VIDEO</span><span>' + targetId + '</span></div><video controls autoplay loop style="max-height:500px;"><source src="' + videoUrl + '" type="video/mp4">Your browser does not support HTML5 video.</video><p style="font-size:0.8rem;color:#94a3b8;margin-top:12px;text-align:center;">Cryptographically Hashed & Locked Evidence Record • Government of Telangana RTO</p></div></body></html>');
+        win.document.close();
+    } else {
+        window.open(videoUrl, '_blank');
     }
 }
 
@@ -3930,7 +3949,8 @@ function generateDetailedAiReportHTML(appId) {
 }
 
 function viewPdfDocument(appId) {
-
+    var targetId = appId || 'APP-206500';
+    var docHTML = generateDetailedAiReportHTML(targetId);
     var win = window.open('', '_blank');
     if (win) {
         win.document.write(docHTML);
@@ -7118,6 +7138,31 @@ function renderTestCentrePage() {
 
 // ─── QR EVIDENCE VERIFICATION PAGE ───
 function renderEvidenceVerificationPage() {
+    var hash = window.location.hash || '';
+    var evMatch = hash.match(/ev=([^&]+)/);
+    var rawEv = evMatch ? decodeURIComponent(evMatch[1]) : 'EV-206500';
+    var appId = rawEv.replace('EV-', 'APP-');
+    if (appId.indexOf('APP-') === -1) appId = 'APP-' + appId;
+
+    var apps = getStoredApplications();
+    var matchedApp = null;
+    for (var i = 0; i < apps.length; i++) {
+        if (apps[i].id === appId || apps[i].id.replace('APP-', '') === rawEv.replace('EV-', '')) {
+            matchedApp = apps[i];
+            break;
+        }
+    }
+
+    var candidateName = matchedApp ? matchedApp.name : 'Rahul Sharma (' + appId + ')';
+    var evidenceId = (matchedApp && matchedApp.evidenceId) ? matchedApp.evidenceId : ('EV-' + appId.replace('APP-', ''));
+    var hashVal = (matchedApp && matchedApp.integrityHash) ? matchedApp.integrityHash : 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    var rtoText = (matchedApp && matchedApp.serviceDetails && matchedApp.serviceDetails.rtoOfficeName) ? matchedApp.serviceDetails.rtoOfficeName : 'RTA Medchal / Hyderabad West (TG-03)';
+
+    var evalText = 'Assigned for Dual Cross-RTO Independent Review';
+    if (matchedApp && matchedApp.evaluator1 && matchedApp.evaluator2) {
+        evalText = matchedApp.evaluator1.name + ' (' + matchedApp.evaluator1.rtoCode + ') & ' + matchedApp.evaluator2.name + ' (' + matchedApp.evaluator2.rtoCode + ')';
+    }
+
     var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(window.location.href);
 
     return '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'home\'"><i class="fa-solid fa-arrow-left"></i> Home</button></div>' +
@@ -7133,14 +7178,14 @@ function renderEvidenceVerificationPage() {
 
                 '<div style="background:#e8f7f1; border:1px solid #c2ead8; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
                     '<div class="flex-between" style="margin-bottom:0.5rem;">' +
-                        '<span style="font-size:1rem; font-weight:700; color:#148f60;"><i class="fa-solid fa-lock"></i> Evidence ID: EV-206500</span>' +
+                        '<span style="font-size:1rem; font-weight:700; color:#148f60;"><i class="fa-solid fa-lock"></i> Evidence ID: ' + evidenceId + '</span>' +
                         '<span class="badge badge-approved">READ-ONLY LOCKED</span>' +
                     '</div>' +
                     '<div style="font-size:0.82rem; color:var(--text-main); line-height:1.6;">' +
-                        '<div>SHA-256 Integrity Hash: <code style="font-size:0.74rem; background:#fff; padding:2px 6px; border-radius:4px;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code></div>' +
-                        '<div>Candidate: <strong>Rahul Sharma (APP-206500)</strong></div>' +
-                        '<div>Physical Test Centre: <strong>RTA Medchal / Hyderabad West (TG-03)</strong></div>' +
-                        '<div>Assigned Evaluation Officer: <strong>Officer 17 (TG-08 - RTA Uppal)</strong></div>' +
+                        '<div>SHA-256 Integrity Hash: <code style="font-size:0.74rem; background:#fff; padding:2px 6px; border-radius:4px;">' + hashVal + '</code></div>' +
+                        '<div>Candidate: <strong>' + candidateName + '</strong></div>' +
+                        '<div>Physical Test Centre: <strong>' + rtoText + '</strong></div>' +
+                        '<div>Assigned Evaluators: <strong>' + evalText + '</strong></div>' +
                         '<div>Test Status: <strong>Evidence Locked & Assigned for Cross-RTO Review</strong></div>' +
                     '</div>' +
                 '</div>' +
@@ -7152,8 +7197,8 @@ function renderEvidenceVerificationPage() {
                             '<li>Biometric Identity Verification: Passed (Face & Fingerprint matched)</li>' +
                             '<li>Track Overhead Camera Feed: Recorded & Hashed (CAM-01 MP4)</li>' +
                             '<li>Vehicle OBD-II Sensor Log: Synchronized & Verified</li>' +
-                            '<li>AI Telemetry Score: 95/100 (PASSED)</li>' +
-                            '<li>Independent Evaluation: Assigned to TG-08 Officer to eliminate local bias</li>' +
+                            '<li>AI Telemetry Score: 92/100 (PASSED)</li>' +
+                            '<li>Independent Evaluation: Assigned to Cross-RTO Officers to eliminate local bias</li>' +
                         '</ul>' +
                     '</div>' +
                     '<div style="text-align:center; background:#f8faf9; padding:0.75rem; border-radius:8px; border:1px solid var(--border);">' +
@@ -7163,8 +7208,8 @@ function renderEvidenceVerificationPage() {
                 '</div>' +
 
                 '<div style="display:flex; gap:0.75rem; justify-content:center;">' +
-                    '<button type="button" class="btn btn-ghost" onclick="openVideoDocument(\'APP-206500\')"><i class="fa-solid fa-file-video" style="color:#096dd9;"></i> View Locked Video</button>' +
-                    '<button type="button" class="btn btn-ghost" onclick="viewPdfDocument(\'APP-206500\')"><i class="fa-solid fa-file-pdf" style="color:#d46b08;"></i> View AI Report</button>' +
+                    '<button type="button" class="btn btn-ghost" onclick="openVideoDocument(\'' + appId + '\')"><i class="fa-solid fa-file-video" style="color:#096dd9;"></i> View Locked Video</button>' +
+                    '<button type="button" class="btn btn-ghost" onclick="viewPdfDocument(\'' + appId + '\')"><i class="fa-solid fa-file-pdf" style="color:#d46b08;"></i> View AI Report</button>' +
                 '</div>' +
             '</div>' +
         '</div>';
