@@ -56,13 +56,14 @@ async function automateDatabase() {
             await supabase.auth.admin.updateUserById(userId, { password: 'admin123' });
         }
 
-        // Upsert into profiles table with role = 'admin'
+        // Upsert into profiles table with correct roles
+        const targetRole = (email.toLowerCase() === 'annan@drivesetu.com') ? 'admin' : 'user';
         const { error: profileErr } = await supabase
             .from('profiles')
             .upsert({
                 id: userId,
                 email: email,
-                role: 'admin',
+                role: targetRole,
                 full_name: email.split('@')[0].toUpperCase(),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' });

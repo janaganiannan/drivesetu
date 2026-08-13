@@ -72,15 +72,15 @@ var rtoAccounts = [
     { email: 'operator.tg12@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-12 Test Centre Operator', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'OP12' },
 
     // RTO Reviewing Officers (Eligible Pool across different RTOs)
+    { email: 'srivathsav@drivesetu.com', password: 'admin123', role: 'REVIEWING_OFFICER', officerId: 'OFF-SRIVATHSAV', name: 'Officer Srivathsav', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'SRI' },
+    { email: 'rahil@drivesetu.com', password: 'admin123', role: 'REVIEWING_OFFICER', officerId: 'OFF-RAHIL', name: 'Officer Rahil', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'RAH' },
     { email: 'officer01.tg03@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-01', name: 'Officer 01 (K. Rao)', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'O01' },
     { email: 'officer09.tg05@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-09', name: 'Officer 09 (S. Verma)', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'O09' },
     { email: 'officer17.tg08@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-17', name: 'Officer 17 (V. Reddy)', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'O17' },
     { email: 'officer31.tg12@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-31', name: 'Officer 31 (M. Sharma)', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'O31' },
 
-    // System / Administrative Authorities (Saved in Supabase Database with password admin123)
-    { email: 'annan@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Annan (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ANN' },
-    { email: 'srivathsav@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Srivathsav (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'SRI' },
-    { email: 'rahil@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Rahil (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'RAH' },
+    // Sole System Administrator
+    { email: 'annan@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Annan (System Administrator)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ANN' },
     { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'RTO System Authority', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
 ];
 
@@ -1801,19 +1801,42 @@ function render() {
                     }
                 }
 
-                // Verify designated admin emails with password admin123
-                var adminEmails = ['annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
-                if (!matchedRto && adminEmails.includes(email.toLowerCase()) && password === 'admin123') {
-                    var adminName = email.split('@')[0].toUpperCase();
-                    matchedRto = {
-                        email: email.toLowerCase(),
-                        password: password,
-                        role: 'ADMIN',
-                        name: adminName + ' (RTO System Admin)',
-                        rtoCode: 'ALL',
-                        rtoName: 'Telangana Transport Department',
-                        initials: adminName.slice(0, 3)
-                    };
+                // Designated RTO accounts check
+                if (!matchedRto && password === 'admin123') {
+                    var inputEmail = email.toLowerCase();
+                    if (inputEmail === 'annan@drivesetu.com') {
+                        matchedRto = {
+                            email: 'annan@drivesetu.com',
+                            password: password,
+                            role: 'ADMIN',
+                            name: 'Annan (System Administrator)',
+                            rtoCode: 'ALL',
+                            rtoName: 'Telangana Transport Department',
+                            initials: 'ANN'
+                        };
+                    } else if (inputEmail === 'rahil@drivesetu.com') {
+                        matchedRto = {
+                            email: 'rahil@drivesetu.com',
+                            password: password,
+                            role: 'REVIEWING_OFFICER',
+                            officerId: 'OFF-RAHIL',
+                            name: 'Officer Rahil',
+                            rtoCode: 'TG-05',
+                            rtoName: 'RTA Secunderabad / Hyderabad North',
+                            initials: 'RAH'
+                        };
+                    } else if (inputEmail === 'srivathsav@drivesetu.com') {
+                        matchedRto = {
+                            email: 'srivathsav@drivesetu.com',
+                            password: password,
+                            role: 'REVIEWING_OFFICER',
+                            officerId: 'OFF-SRIVATHSAV',
+                            name: 'Officer Srivathsav',
+                            rtoCode: 'TG-08',
+                            rtoName: 'RTA Uppal / Rangareddy',
+                            initials: 'SRI'
+                        };
+                    }
                 }
 
                 if (matchedRto) {
@@ -2334,9 +2357,11 @@ function render() {
             // Logged in as reviewing officer / evaluator
             var allApps = getStoredApplications();
 
-            // Filter applications assigned to this reviewer officer
+            // Filter applications assigned to this specific reviewer officer ONLY
             allApps = allApps.filter(function(a) {
-                return (a.evaluator1 && a.evaluator1.officerId === _rs.officerId) ||
+                return (a.assignedOfficerEmail === _rs.email) ||
+                       (a.assignedOfficerId === _rs.officerId) ||
+                       (a.evaluator1 && a.evaluator1.officerId === _rs.officerId) ||
                        (a.evaluator2 && a.evaluator2.officerId === _rs.officerId) ||
                        (a.adjudicator && a.adjudicator.officerId === _rs.officerId);
             });
@@ -5985,12 +6010,31 @@ function submitServiceForm(licenceType) {
         documents: savedDocs,
         testEvidence: testEvidenceObj,
         reviewStage: requireEvidence ? 'AI Track Audit' : 'Document Verification',
-        assignedOfficer: 'Officer ' + (1 + Math.floor(Math.random() * 5)),
+        assignedOfficer: '',
         reviewHistory: [],
         remarks: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         source: 'Digital Application (DriveSetu Portal)'
+    };
+
+    // Random allotment between Officer Srivathsav and Officer Rahil
+    var officerPool = [
+        { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' },
+        { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' }
+    ];
+    var assignedOfficerObj = officerPool[Math.floor(Math.random() * officerPool.length)];
+
+    newApp.assignedOfficerEmail = assignedOfficerObj.email;
+    newApp.assignedOfficerId = assignedOfficerObj.officerId;
+    newApp.assignedOfficerName = assignedOfficerObj.name;
+    newApp.assignedOfficer = assignedOfficerObj.name;
+    newApp.evaluator1 = {
+        officerId: assignedOfficerObj.officerId,
+        rtoCode: assignedOfficerObj.rtoCode,
+        name: assignedOfficerObj.name,
+        decision: null,
+        reason: null
     };
 
     // Promote vehicleClasses to top-level for consistency
