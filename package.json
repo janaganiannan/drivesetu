@@ -1,0 +1,16 @@
+{
+  "name": "drivesetu",
+  "version": "1.0.0",
+  "description": "DriveSetu RTO Driving Test Telemetry & AI Evaluation Portal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Build complete'"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
