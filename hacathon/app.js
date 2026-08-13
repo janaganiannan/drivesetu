@@ -6451,6 +6451,12 @@ function formatTestTimer(sec) {
     return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
 }
 
+function pad3(num) {
+    var s = num + "";
+    while (s.length < 3) s = "0" + s;
+    return s;
+}
+
 function updateTestSessionUI(sec) {
     if (sec > 40) sec = 40;
     window.testCentreState.testTimerSeconds = sec;
@@ -6488,18 +6494,14 @@ function updateTestSessionUI(sec) {
     var posEl = document.getElementById('telemetryPosition');
     if (posEl) posEl.textContent = p.position;
 
-    // Video frame view switching
+    // Real Video Frame Sequence Rendering (Motorcycle moving cleanly along track lane)
+    var frameIdx = Math.floor((sec / 40) * 119);
+    if (frameIdx < 0) frameIdx = 0;
+    if (frameIdx > 119) frameIdx = 119;
+
     var imgEl = document.getElementById('testCameraFeedImg');
     if (imgEl) {
-        if (sec >= 20) {
-            if (!imgEl.src.includes('rto_driving_test_camera_2.jpg')) {
-                imgEl.src = 'rto_driving_test_camera_2.jpg';
-            }
-        } else {
-            if (!imgEl.src.includes('rto_driving_test_camera.jpg')) {
-                imgEl.src = 'rto_driving_test_camera.jpg';
-            }
-        }
+        imgEl.src = 'video_frames/frame_' + pad3(frameIdx) + '.jpg';
     }
 
     // AI Logs update
