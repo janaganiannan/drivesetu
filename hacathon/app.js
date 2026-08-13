@@ -4783,10 +4783,13 @@ function checkCitizenDLEligibility(session, requestedClasses) {
     
     // 2. Check if citizen has a valid Learner's Licence
     var matchedLL = null;
+    var isDemoAccount = (session.email === 'citizen@drivesetu.com' || session.email === 'demo@drivesetu.com');
+
     for (var j = 0; j < apps.length; j++) {
         var llApp = apps[j];
-        if (llApp.type === "Learner's Licence" && (llApp.status === 'Approved' || llApp.status === 'Issued' || llApp.status === 'Valid')) {
-            if (llApp.citizenId === session.email || llApp.citizenId === session.appId || llApp.name === session.name || llApp.id === 'LL-DEMO-001') {
+        if (llApp.type === "Learner's Licence" && (llApp.status === 'Approved' || llApp.status === 'Issued' || llApp.status === 'Valid' || llApp.status === 'Submitted' || llApp.status === 'Pending')) {
+            var isOwner = (llApp.citizenId === session.email || llApp.citizenId === session.appId || (session.name && llApp.name === session.name));
+            if (isOwner || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
                 matchedLL = llApp;
                 break;
             }
@@ -4824,11 +4827,11 @@ function getLlEligibilityInfo(app) {
     if (!app) return { isEligible: false, reason: 'No application record found.' };
 
     var isDemo = (app.id === 'LL-DEMO-001' || app.isPrototypeDemo);
-    var issueDateStr = (app.serviceDetails && app.serviceDetails.issueDate) || app.date || '12 May 2026';
+    var issueDateStr = (app.serviceDetails && app.serviceDetails.issueDate) || app.date || app.createdAt;
     
     var issueDateObj = new Date(issueDateStr);
     if (isNaN(issueDateObj.getTime())) {
-        issueDateObj = new Date('2026-05-12');
+        issueDateObj = new Date();
     }
 
     var minEligibleDateObj = new Date(issueDateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -4838,6 +4841,7 @@ function getLlEligibilityInfo(app) {
         return {
             isEligible: true,
             isDemo: true,
+            daysHeld: 90,
             daysRemaining: 0,
             issueDateStr: '12 May 2026',
             eligibleDateStr: '11 Jun 2026',
@@ -4845,13 +4849,16 @@ function getLlEligibilityInfo(app) {
         };
     }
 
+    var elapsedMs = now.getTime() - issueDateObj.getTime();
+    var daysHeld = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
     var diffMs = minEligibleDateObj.getTime() - now.getTime();
-    var diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    var daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
-    if (diffDays <= 0) {
+    if (daysHeld >= 30 || daysRemaining <= 0) {
         return {
             isEligible: true,
             isDemo: false,
+            daysHeld: daysHeld,
             daysRemaining: 0,
             issueDateStr: issueDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
             eligibleDateStr: minEligibleDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
@@ -4861,10 +4868,11 @@ function getLlEligibilityInfo(app) {
         return {
             isEligible: false,
             isDemo: false,
-            daysRemaining: diffDays,
+            daysHeld: daysHeld,
+            daysRemaining: daysRemaining,
             issueDateStr: issueDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
             eligibleDateStr: minEligibleDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
-            reason: 'Learner\'s Licence issued on ' + issueDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}) + '. Under Motor Vehicle Regulations, a 30-day mandatory learning period is required before taking the practical driving test for a Permanent Licence.'
+            reason: 'Learner\'s Licence issued on ' + issueDateObj.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}) + '. Under Motor Vehicle Regulations, a 30-day mandatory learning period is required. You have completed ' + daysHeld + ' days (' + daysRemaining + ' days left).'
         };
     }
 }
@@ -5002,25 +5010,25 @@ function renderPermanentPage(session) {
 
         return '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'citizen\'"><i class="fa-solid fa-arrow-left"></i> Back to Services</button></div>' +
             '<div class="animate-in" style="max-width:680px; margin:0 auto;">' +
-                '<div class="card" style="padding: 2.25rem 2rem;">' +
-                    '<div style="width:60px; height:60px; border-radius:50%; background:#e8f7f1; color:var(--primary); font-size:1.8rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem auto;">' +
-                        '<i class="fa-solid fa-id-card"></i>' +
+                '<div class="card" style="padding: 2.5rem 2rem; text-align:center;">' +
+                    '<div style="width:70px; height:70px; border-radius:50%; background:#fff7e6; color:#d46b08; font-size:2rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem auto;">' +
+                        '<i class="fa-solid fa-triangle-exclamation"></i>' +
                     '</div>' +
-                    '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); text-align:center; margin-bottom:0.3rem;">Permanent Driving Licence Application</h2>' +
-                    '<p style="font-size:0.84rem; color:var(--text-muted); text-align:center; margin-bottom:1.75rem;">Digital application based on applicable Form 4 information — DriveSetu Prototype</p>' +
-                    
-                    '<div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.5rem; margin-bottom:1.5rem;">' +
-                        '<label style="font-weight:700; font-size:0.9rem; color:var(--text-main); display:block; margin-bottom:0.5rem;">Enter your Learner\'s Licence Application Number</label>' +
-                        '<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem;">Enter the application number issued for your Learner\'s Licence (e.g. LL-DEMO-001 or APP-101) to automatically fetch and verify your profile.</p>' +
-                        '<div style="display:flex; gap:0.6rem; margin-bottom:1rem;">' +
+                    '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); margin-bottom:0.4rem;">No Learner\'s Licence Found</h2>' +
+                    '<p style="font-size:0.86rem; color:var(--text-muted); margin-bottom:1.5rem; max-width:520px; margin-left:auto; margin-right:auto; line-height:1.5;">' +
+                        'Under Motor Vehicle Regulations, you must first apply for and hold an approved <strong>Learner\'s Licence (LL)</strong> for a minimum of <strong>30 days</strong> before applying for a Permanent Driving Licence.' +
+                    '</p>' +
+                    '<div style="display:flex; justify-content:center; margin-bottom:1.75rem;">' +
+                        '<button type="button" class="btn btn-primary" style="padding:0.75rem 1.75rem; font-weight:600;" onclick="window.location.hash=\'apply-learner\'">' +
+                            '<i class="fa-solid fa-id-card"></i> Apply for Learner\'s Licence First' +
+                        '</button>' +
+                    '</div>' +
+                    '<div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.25rem; text-align:left;">' +
+                        '<label style="font-weight:700; font-size:0.85rem; color:var(--text-main); display:block; margin-bottom:0.4rem;">Already have a Learner\'s Licence number issued offline?</label>' +
+                        '<div style="display:flex; gap:0.6rem;">' +
                             '<input type="text" id="trackLlInput" placeholder="e.g. LL-DEMO-001 or APP-101" style="flex:1; text-transform:uppercase;" onkeyup="if(event.key===\'Enter\') searchLlForPermanent()">' +
-                            '<button type="button" class="btn btn-primary" onclick="searchLlForPermanent()"><i class="fa-solid fa-magnifying-glass"></i> Search Application</button>' +
+                            '<button type="button" class="btn btn-secondary" onclick="searchLlForPermanent()"><i class="fa-solid fa-magnifying-glass"></i> Verify LL</button>' +
                         '</div>' +
-                    '</div>' +
-
-                    '<div style="text-align:center; border-top:1px dashed var(--border); padding-top:1.25rem;">' +
-                        '<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.75rem;">Don\'t have an active Learner\'s Licence registered in DriveSetu records?</p>' +
-                        '<button type="button" class="btn btn-ghost" onclick="startPermanentManualMode()"><i class="fa-solid fa-pen-to-square"></i> Continue with Manual Application</button>' +
                     '</div>' +
                 '</div>' +
             '</div>';
