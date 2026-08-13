@@ -6474,6 +6474,15 @@ function updateTestSessionUI(sec) {
     var sliderEl = document.getElementById('videoTimelineSlider');
     if (sliderEl) sliderEl.value = sec;
 
+    // Sync HTML5 video currentTime
+    var videoEl = document.getElementById('testCameraVideoFeed');
+    if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
+        var targetTime = (sec / 40) * videoEl.duration;
+        if (Math.abs(videoEl.currentTime - targetTime) > 1.5) {
+            videoEl.currentTime = targetTime;
+        }
+    }
+
     // Telemetry updates
     var p = getDeterministicTelemetry(sec);
     var spEl = document.getElementById('telemetrySpeed');
@@ -6493,16 +6502,6 @@ function updateTestSessionUI(sec) {
 
     var posEl = document.getElementById('telemetryPosition');
     if (posEl) posEl.textContent = p.position;
-
-    // Real Video Frame Sequence Rendering (Motorcycle moving cleanly along track lane)
-    var frameIdx = Math.floor((sec / 40) * 119);
-    if (frameIdx < 0) frameIdx = 0;
-    if (frameIdx > 119) frameIdx = 119;
-
-    var imgEl = document.getElementById('testCameraFeedImg');
-    if (imgEl) {
-        imgEl.src = 'video_frames/frame_' + pad3(frameIdx) + '.jpg';
-    }
 
     // AI Logs update
     var logs = getDeterministicLogs(sec);
@@ -6526,13 +6525,16 @@ function updateTestSessionUI(sec) {
         }
         var playBtn = document.getElementById('videoPlayPauseBtn');
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
+        if (videoEl) videoEl.pause();
     }
 }
 
 function toggleTestVideoPlay() {
+    var videoEl = document.getElementById('testCameraVideoFeed');
     if (window.testCentreState.isPlaying) {
         stopTestCentreTimers();
         window.testCentreState.isPlaying = false;
+        if (videoEl) videoEl.pause();
         var playBtn = document.getElementById('videoPlayPauseBtn');
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
     } else {
@@ -6540,6 +6542,7 @@ function toggleTestVideoPlay() {
             window.testCentreState.testTimerSeconds = 0;
         }
         window.testCentreState.isPlaying = true;
+        if (videoEl) videoEl.play();
         var playBtn2 = document.getElementById('videoPlayPauseBtn');
         if (playBtn2) playBtn2.innerHTML = '<i class="fa-solid fa-pause"></i>';
         startSessionTimer();
@@ -6548,11 +6551,17 @@ function toggleTestVideoPlay() {
 
 function seekTestVideoTimeline(val) {
     var sec = parseInt(val, 10) || 0;
+    var videoEl = document.getElementById('testCameraVideoFeed');
+    if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
+        videoEl.currentTime = (sec / 40) * videoEl.duration;
+    }
     updateTestSessionUI(sec);
 }
 
 function toggleTestVideoMute() {
     window.testCentreState.isMuted = !window.testCentreState.isMuted;
+    var videoEl = document.getElementById('testCameraVideoFeed');
+    if (videoEl) videoEl.muted = window.testCentreState.isMuted;
     var icon = document.getElementById('videoMuteIcon');
     if (icon) {
         icon.className = window.testCentreState.isMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
@@ -6561,10 +6570,11 @@ function toggleTestVideoMute() {
 
 function toggleTestVideoFullscreen() {
     var wrapper = document.querySelector('.camera-video-wrapper');
-    if (!wrapper) wrapper = document.getElementById('testCameraFeedImg');
-    if (wrapper) {
+    var videoEl = document.getElementById('testCameraVideoFeed');
+    var target = wrapper || videoEl;
+    if (target) {
         if (!document.fullscreenElement) {
-            if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+            if (target.requestFullscreen) target.requestFullscreen();
         } else {
             if (document.exitFullscreen) document.exitFullscreen();
         }
@@ -6637,7 +6647,7 @@ function testCentreSendToRto() {
             fileSize: '28.4MB',
             fileType: 'video/mp4',
             timestamp: timestampStr,
-            dataUrl: 'rto_driving_test_camera.jpg',
+            dataUrl: 'pika.mp4',
             status: 'Secured & Locked'
         },
         telemetry: {
@@ -6864,13 +6874,13 @@ function renderTestCentrePage() {
                             '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
                                 '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Identity Verification</div>' +
                                 (idVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Identity Verified (Face Match 99.8%)</div>'
+                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Identity Verified (Face Match 99.8%)</div>' +
                                     : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyIdentity()"><i class="fa-solid fa-camera"></i> Verify Identity</button>') +
                             '</div>' +
                             '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
                                 '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Appointment Verification</div>' +
                                 (apptVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Appointment Verified (Slot Confirmed)</div>'
+                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Appointment Verified (Slot Confirmed)</div>' +
                                     : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyAppointment()"><i class="fa-solid fa-calendar-check"></i> Verify Appointment</button>') +
                             '</div>' +
                         '</div>' +
@@ -6878,7 +6888,7 @@ function renderTestCentrePage() {
 
                     '<!-- START TEST BUTTON -->' +
                     (isReadyToStart
-                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>'
+                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>' +
                         : '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem; opacity:0.6; cursor:not-allowed;" disabled><i class="fa-solid fa-lock"></i> Verify Identity & Appointment to Enable Test</button>') +
                 '</div>' +
             '</div>';
@@ -6923,32 +6933,35 @@ function renderTestCentrePage() {
                     '</div>' +
                 '</div>' +
 
-                '<!-- Grid 2: Real Camera Feed + Vehicle Sensor Telemetry -->' +
+                '<!-- Grid 2: Real Camera Video Feed (pika.mp4) + Vehicle Sensor Telemetry -->' +
                 '<div class="grid-2" style="grid-template-columns: 1.3fr 1fr; gap:1.25rem; margin-bottom:1.25rem;">' +
-                    '<!-- 1. CAMERA PANEL (REPLACED GREEN DOT WITH REAL VIDEO FEED & OVERLAYS) -->' +
+                    '<!-- 1. CAMERA PANEL (EMBEDDED UPLOADED PIKA.MP4 VIDEO FEED WITH OVERLAYS) -->' +
                     '<div class="card camera-video-wrapper" style="padding:1.25rem; background:#0f172a; color:#fff;">' +
                         '<div class="flex-between" style="border-bottom:1px solid #334155; padding-bottom:0.5rem; margin-bottom:0.75rem; font-size:0.8rem;">' +
                             '<span style="font-weight:700; color:#38bdf8;"><i class="fa-solid fa-video"></i> PROTOTYPE CAMERA SIMULATION</span>' +
                             '<span style="background:#ef4444; color:#fff; font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">● REC <span id="recTimerOverlay">' + timerStr + '</span></span>' +
                         '</div>' +
                         
-                        '<!-- REAL MOTORCYCLE TEST TRACK VIDEO / HIGH-RES CAMERA DISPLAY -->' +
+                        '<!-- UPLOADED MOTORCYCLE TEST TRACK MP4 VIDEO DISPLAY -->' +
                         '<div style="position:relative; width:100%; height:250px; background:#000; border:1px solid #334155; border-radius:6px; overflow:hidden;">' +
-                            '<img id="testCameraFeedImg" src="rto_driving_test_camera.jpg" alt="RTO Motorcycle Test Track Camera" style="width:100%; height:100%; object-fit:cover; display:block; transition: opacity 0.5s ease;">' +
+                            '<video id="testCameraVideoFeed" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; display:block;">' +
+                                '<source src="pika.mp4" type="video/mp4">' +
+                                '<source src="pika-738a6366-178f-43f5-8ab3-e115a75ceaf9.mp4" type="video/mp4">' +
+                            '</video>' +
                             
                             '<!-- TOP LEFT OVERLAY -->' +
-                            '<div style="position:absolute; top:10px; left:10px; font-size:0.72rem; font-family:monospace; color:#38bdf8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid rgba(56,189,248,0.3); font-weight:bold; letter-spacing:0.5px;">' +
+                            '<div style="position:absolute; top:10px; left:10px; font-size:0.72rem; font-family:monospace; color:#38bdf8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid rgba(56,189,248,0.3); font-weight:bold; letter-spacing:0.5px; pointer-events:none; z-index:2;">' +
                                 'CAM-01 • TEST TRACK CAMERA' +
                             '</div>' +
 
                             '<!-- TOP RIGHT OVERLAY -->' +
-                            '<div style="position:absolute; top:10px; right:10px; font-size:0.72rem; font-family:monospace; color:#ef4444; background:rgba(0,0,0,0.75); padding:3px 8px; border-radius:4px; border:1px solid rgba(239,68,68,0.4); font-weight:bold;">' +
+                            '<div style="position:absolute; top:10px; right:10px; font-size:0.72rem; font-family:monospace; color:#ef4444; background:rgba(0,0,0,0.75); padding:3px 8px; border-radius:4px; border:1px solid rgba(239,68,68,0.4); font-weight:bold; pointer-events:none; z-index:2;">' +
                                 '<i class="fa-solid fa-circle animate-pulse" style="font-size:0.6rem; margin-right:4px;"></i> REC <span id="cameraRecTime">' + timerStr + '</span>' +
                             '</div>' +
 
                             '<!-- BOTTOM OVERLAY -->' +
-                            '<div style="position:absolute; bottom:10px; left:10px; font-size:0.7rem; font-family:monospace; color:#94a3b8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid #334155;">' +
-                                'LIVE TEST EVIDENCE • 1080p • ' + videoName + '' +
+                            '<div style="position:absolute; bottom:10px; left:10px; font-size:0.7rem; font-family:monospace; color:#94a3b8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid #334155; pointer-events:none; z-index:2;">' +
+                                'LIVE TEST EVIDENCE • 1080p • pika.mp4' +
                             '</div>' +
                         '</div>' +
 
