@@ -13,33 +13,67 @@ const ADMIN_EMAILS = [
     'rahil@drivesetu.com'
 ];
 
+function getRegisteredAccountsMap() {
+    try {
+        var raw = localStorage.getItem('drivesetu_registered_citizens_map');
+        return raw ? JSON.parse(raw) : {};
+    } catch(e) {
+        return {};
+    }
+}
+
+function saveRegisteredAccount(email, password, name) {
+    try {
+        var map = getRegisteredAccountsMap();
+        map[email.toLowerCase()] = { password: password, name: name, registeredAt: new Date().toISOString() };
+        localStorage.setItem('drivesetu_registered_citizens_map', JSON.stringify(map));
+    } catch(e) {}
+}
+
 /**
  * Register a new user in Supabase Auth & Profiles
  */
 async function registerUser(email, password, fullName = '') {
-    if (!supabaseClient) throw new Error("Supabase client not initialized");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName || cleanEmail.split('@')[0];
+    const registeredMap = getRegisteredAccountsMap();
+
+    if (registeredMap[cleanEmail]) {
+        throw new Error("Account with email address " + cleanEmail + " is already registered. Duplicate accounts with the same email are not permitted.");
+    }
+
+    if (!supabaseClient) {
+        saveRegisteredAccount(cleanEmail, password, cleanName);
+        return { user: { id: 'USER-' + Date.now(), email: cleanEmail } };
+    }
     
     const { data, error } = await supabaseClient.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password: password,
         options: {
-            data: { full_name: fullName }
+            data: { full_name: cleanName }
         }
     });
 
-    if (error) throw error;
+    if (error) {
+        if (error.message.includes('already registered') || error.message.includes('already in use')) {
+            throw new Error("Account with email address " + cleanEmail + " is already registered. Duplicate accounts with the same email are not permitted.");
+        }
+        throw error;
+    }
 
     // Ensure profile entry exists
     if (data.user) {
         await supabaseClient.from('profiles').upsert({
             id: data.user.id,
-            email: email.trim().toLowerCase(),
-            role: ADMIN_EMAILS.includes(email.trim().toLowerCase()) ? 'admin' : 'user',
-            full_name: fullName || email.split('@')[0],
+            email: cleanEmail,
+            role: ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : 'user',
+            full_name: cleanName,
             updated_at: new Date().toISOString()
         });
     }
 
+    saveRegisteredAccount(cleanEmail, password, cleanName);
     return data;
 }
 
@@ -60,30 +94,39 @@ async function loginUser(email, password) {
 
 /**
  * Universal Citizen Authentication Handler
- * Accepts ANY citizen email and password. If the user exists, signs them in.
- * If not, registers them in Supabase Auth and creates their database profile!
+ * Enforces strict email uniqueness: Each email address has exactly ONE password and ONE account!
  */
 async function authenticateCitizen(email, password, fullName = '') {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName || cleanEmail.split('@')[0];
+    const registeredMap = getRegisteredAccountsMap();
+
+    // 1. Check local registry for existing password match
+    if (registeredMap[cleanEmail]) {
+        var storedPass = registeredMap[cleanEmail].password;
+        if (storedPass && storedPass !== password) {
+            throw new Error("Incorrect password for registered email " + cleanEmail + ". There can only be one account per email address.");
+        }
+    }
+
     if (!supabaseClient) {
-        // Fallback for offline/local simulation
+        saveRegisteredAccount(cleanEmail, password, cleanName);
         return {
             id: 'USER-' + Date.now(),
-            email: email.trim().toLowerCase(),
-            name: fullName || email.split('@')[0]
+            email: cleanEmail,
+            name: registeredMap[cleanEmail]?.name || cleanName
         };
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = fullName || cleanEmail.split('@')[0];
-
     try {
-        // 1. Try Login
+        // 2. Try Login with Supabase Auth
         const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
             email: cleanEmail,
             password: password
         });
 
         if (!loginError && loginData.user) {
+            saveRegisteredAccount(cleanEmail, password, loginData.user.user_metadata?.full_name || cleanName);
             return {
                 id: loginData.user.id,
                 email: loginData.user.email,
@@ -92,7 +135,16 @@ async function authenticateCitizen(email, password, fullName = '') {
             };
         }
 
-        // 2. If user doesn't exist, sign up automatically
+        // If login failed (e.g. wrong password for existing user in Supabase)
+        if (loginError && (loginError.message.includes('Invalid login credentials') || loginError.status === 400)) {
+            // Check if user already exists in profiles table
+            const { data: existingProfile } = await supabaseClient.from('profiles').select('id, email, full_name').eq('email', cleanEmail).maybeSingle();
+            if (existingProfile) {
+                throw new Error("Incorrect password for registered email address " + cleanEmail + ". Duplicate accounts are not permitted.");
+            }
+        }
+
+        // 3. If user doesn't exist anywhere, register new account
         const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
             email: cleanEmail,
             password: password,
@@ -102,9 +154,8 @@ async function authenticateCitizen(email, password, fullName = '') {
         });
 
         if (signUpError) {
-            // Fallback: If signup requires confirm or returns user
-            if (signUpError.message.includes('already registered')) {
-                throw new Error("Invalid password for this registered email address.");
+            if (signUpError.message.includes('already registered') || signUpError.message.includes('already in use')) {
+                throw new Error("Incorrect password for registered email address " + cleanEmail + ". Duplicate accounts are not permitted.");
             }
             throw signUpError;
         }
@@ -120,6 +171,8 @@ async function authenticateCitizen(email, password, fullName = '') {
             });
         }
 
+        saveRegisteredAccount(cleanEmail, password, cleanName);
+
         return {
             id: userObj ? userObj.id : 'USER-' + Date.now(),
             email: cleanEmail,
@@ -127,8 +180,11 @@ async function authenticateCitizen(email, password, fullName = '') {
             user: userObj
         };
     } catch (err) {
+        if (err.message.includes('Incorrect password') || err.message.includes('already registered') || err.message.includes('Duplicate accounts')) {
+            throw err;
+        }
         console.warn("Supabase Auth Warning:", err.message);
-        // Fallback gracefully so user can proceed
+        saveRegisteredAccount(cleanEmail, password, cleanName);
         return {
             id: 'USER-' + Date.now(),
             email: cleanEmail,

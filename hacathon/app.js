@@ -1783,13 +1783,11 @@ function render() {
 
             try {
                 await DriveSetuSupabase.registerUser(email, password, fullName);
-                alert('✅ Registration successful for ' + email + '! Account saved in Supabase database.\n\nYou may now sign in.');
+                alert('✅ Registration successful for ' + email + '! Account saved in Supabase database.\n\nYou may now sign in with your password.');
                 document.getElementById('loginEmail').value = email.trim();
                 document.getElementById('loginPassword').value = password.trim();
             } catch (err) {
-                alert('Registration: ' + (err.message || 'Account registered in Supabase. Proceeding to sign in.'));
-                document.getElementById('loginEmail').value = email.trim();
-                document.getElementById('loginPassword').value = password.trim();
+                alert('⚠️ Registration Error: ' + (err.message || 'Account registration failed.'));
             }
         };
         
