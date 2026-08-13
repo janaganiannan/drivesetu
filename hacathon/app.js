@@ -1750,6 +1750,13 @@ function render() {
         document.getElementById('registerBtn').onclick = async function() {
             var email = prompt('Enter your Citizen Email Address:');
             if (!email || !email.trim()) return;
+
+            var officialAdminEmails = ['admin@drivesetu.com', 'annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
+            if (officialAdminEmails.includes(email.trim().toLowerCase())) {
+                alert('⚠️ Registration Blocked: ' + email + ' is an Official RTO / System Administrator account. Official admin accounts cannot be registered as citizen accounts.');
+                return;
+            }
+
             var password = prompt('Create your Password (min 6 characters):');
             if (!password || !password.trim()) return;
             var fullName = prompt('Enter your Full Name:', email.split('@')[0]);
@@ -1775,6 +1782,12 @@ function render() {
             }
 
             if (loginTarget === 'citizen') {
+                var officialAdminEmails = ['admin@drivesetu.com', 'annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
+                if (officialAdminEmails.includes(email.toLowerCase())) {
+                    alert('⚠️ Notice: ' + email + ' is an Official RTO / System Administrator account.\n\nRedirecting to RTO Officer Portal Login...');
+                    window.location.hash = 'rto-login';
+                    return;
+                }
                 try {
                     // Universal Citizen Authentication (Saves email & password in Supabase database)
                     var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);

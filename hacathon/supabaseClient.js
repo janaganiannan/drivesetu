@@ -10,6 +10,14 @@ const supabaseClient = (typeof supabase !== 'undefined' && supabase && typeof su
 const ADMIN_EMAILS = [
     'annan@drivesetu.com',
     'srivathsav@drivesetu.com',
+    'rahil@drivesetu.com',
+    'admin@drivesetu.com'
+];
+
+const OFFICIAL_ADMIN_EMAILS = [
+    'admin@drivesetu.com',
+    'annan@drivesetu.com',
+    'srivathsav@drivesetu.com',
     'rahil@drivesetu.com'
 ];
 
@@ -37,6 +45,10 @@ async function registerUser(email, password, fullName = '') {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName || cleanEmail.split('@')[0];
     const registeredMap = getRegisteredAccountsMap();
+
+    if (OFFICIAL_ADMIN_EMAILS.includes(cleanEmail)) {
+        throw new Error("Email address " + cleanEmail + " is an Official RTO / System Administrator account. Official admin accounts cannot be registered as citizen accounts.");
+    }
 
     if (registeredMap[cleanEmail]) {
         throw new Error("Account with email address " + cleanEmail + " is already registered. Duplicate accounts with the same email are not permitted.");
@@ -100,6 +112,10 @@ async function authenticateCitizen(email, password, fullName = '') {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName || cleanEmail.split('@')[0];
     const registeredMap = getRegisteredAccountsMap();
+
+    if (OFFICIAL_ADMIN_EMAILS.includes(cleanEmail)) {
+        throw new Error("Email address " + cleanEmail + " is an Official RTO / System Administrator account. Please use the RTO Officer Portal Login to sign in.");
+    }
 
     // 1. Check local registry for existing password match
     if (registeredMap[cleanEmail]) {
