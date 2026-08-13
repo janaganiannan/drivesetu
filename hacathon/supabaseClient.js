@@ -18,8 +18,22 @@ const OFFICIAL_ADMIN_EMAILS = [
     'admin@drivesetu.com',
     'annan@drivesetu.com',
     'srivathsav@drivesetu.com',
-    'rahil@drivesetu.com'
+    'rahil@drivesetu.com',
+    'officer01.tg03@drivesetu.com',
+    'officer09.tg05@drivesetu.com',
+    'officer17.tg08@drivesetu.com',
+    'officer31.tg12@drivesetu.com',
+    'operator.tg03@drivesetu.com',
+    'operator.tg05@drivesetu.com',
+    'operator.tg08@drivesetu.com',
+    'operator.tg12@drivesetu.com'
 ];
+
+function isOfficialRtoAccount(email) {
+    if (!email) return false;
+    const clean = email.trim().toLowerCase();
+    return OFFICIAL_ADMIN_EMAILS.includes(clean) || clean.endsWith('@drivesetu.com');
+}
 
 function getRegisteredAccountsMap() {
     try {
@@ -46,8 +60,8 @@ async function registerUser(email, password, fullName = '') {
     const cleanName = fullName || cleanEmail.split('@')[0];
     const registeredMap = getRegisteredAccountsMap();
 
-    if (OFFICIAL_ADMIN_EMAILS.includes(cleanEmail)) {
-        throw new Error("Email address " + cleanEmail + " is an Official RTO / System Administrator account. Official admin accounts cannot be registered as citizen accounts.");
+    if (isOfficialRtoAccount(cleanEmail)) {
+        throw new Error("Email address " + cleanEmail + " is an Official RTO Officer / System Administrator account. Official RTO accounts cannot be registered as citizen accounts.");
     }
 
     if (registeredMap[cleanEmail]) {
@@ -113,8 +127,8 @@ async function authenticateCitizen(email, password, fullName = '') {
     const cleanName = fullName || cleanEmail.split('@')[0];
     const registeredMap = getRegisteredAccountsMap();
 
-    if (OFFICIAL_ADMIN_EMAILS.includes(cleanEmail)) {
-        throw new Error("Email address " + cleanEmail + " is an Official RTO / System Administrator account. Please use the RTO Officer Portal Login to sign in.");
+    if (isOfficialRtoAccount(cleanEmail)) {
+        throw new Error("Email address " + cleanEmail + " is an Official RTO Officer / System Administrator account. Please use the RTO Officer Portal Login to sign in.");
     }
 
     // 1. Check local registry for existing password match

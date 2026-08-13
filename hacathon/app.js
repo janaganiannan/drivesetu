@@ -1751,9 +1751,10 @@ function render() {
             var email = prompt('Enter your Citizen Email Address:');
             if (!email || !email.trim()) return;
 
-            var officialAdminEmails = ['admin@drivesetu.com', 'annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
-            if (officialAdminEmails.includes(email.trim().toLowerCase())) {
-                alert('⚠️ Registration Blocked: ' + email + ' is an Official RTO / System Administrator account. Official admin accounts cannot be registered as citizen accounts.');
+            var cleanCheck = email.trim().toLowerCase();
+            var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
+            if (isRtoEmail) {
+                alert('⚠️ Registration Blocked: ' + email + ' is an Official RTO Officer / System Administrator account. Official RTO accounts cannot be registered as citizen accounts.');
                 return;
             }
 
@@ -1782,9 +1783,10 @@ function render() {
             }
 
             if (loginTarget === 'citizen') {
-                var officialAdminEmails = ['admin@drivesetu.com', 'annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
-                if (officialAdminEmails.includes(email.toLowerCase())) {
-                    alert('⚠️ Notice: ' + email + ' is an Official RTO / System Administrator account.\n\nRedirecting to RTO Officer Portal Login...');
+                var cleanCheck = email.trim().toLowerCase();
+                var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
+                if (isRtoEmail) {
+                    alert('⚠️ Notice: ' + email + ' is an Official RTO Officer / System Administrator account.\n\nRedirecting to RTO Officer Portal Login...');
                     window.location.hash = 'rto-login';
                     return;
                 }
