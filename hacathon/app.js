@@ -740,6 +740,45 @@ function getStoredApplications() {
         });
         modified = true;
     }
+    // Ensure Sufyan has an Approved Learner's Licence issued >30 days ago (10 May 2026)
+    var hasSufyanLL = false;
+    for (var s = 0; s < apps.length; s++) {
+        var _appS = apps[s];
+        if (_appS.type === "Learner's Licence" && ((_appS.citizenId && _appS.citizenId.toLowerCase().includes('sufyan')) || (_appS.name && _appS.name.toLowerCase().includes('sufyan')) || _appS.id === 'LL-SUFYAN-001')) {
+            hasSufyanLL = true;
+            _appS.status = 'Approved';
+            _appS.date = '10 May 2026';
+            if (!_appS.serviceDetails) _appS.serviceDetails = {};
+            _appS.serviceDetails.issueDate = '10 May 2026';
+            _appS.serviceDetails.validity = '10 May 2026 to 10 Nov 2026';
+            _appS.serviceDetails.llNumber = _appS.id || 'LL-SUFYAN-001';
+            modified = true;
+        }
+    }
+
+    if (!hasSufyanLL) {
+        apps.unshift({
+            id: 'LL-SUFYAN-001',
+            name: 'Sufyan',
+            type: "Learner's Licence",
+            status: 'Approved',
+            date: '10 May 2026',
+            citizenId: 'sufyan@gmail.com',
+            vehicleClasses: ['MCWG', 'LMV'],
+            serviceDetails: {
+                rtoCode: 'TG-03',
+                rtoOfficeName: 'RTA Medchal / Hyderabad West',
+                rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
+                vehicleClasses: ['MCWG', 'LMV'],
+                vehicleClass: 'MCWG, LMV',
+                llNumber: 'LL-SUFYAN-001',
+                issueDate: '10 May 2026',
+                validity: '10 May 2026 to 10 Nov 2026'
+            }
+        });
+        modified = true;
+    }
+
     for (var d = 0; d < apps.length; d++) {
         if (apps[d].id === 'APP-101' && apps[d].type === "Learner's Licence") {
             if (!apps[d].citizenId) { apps[d].citizenId = 'citizen@drivesetu.com'; modified = true; }
@@ -4797,12 +4836,14 @@ function checkCitizenDLEligibility(session, requestedClasses) {
     // 2. Check if citizen has a valid Learner's Licence
     var matchedLL = null;
     var isDemoAccount = (session.email === 'citizen@drivesetu.com' || session.email === 'demo@drivesetu.com');
+    var isSufyanSession = (session.email && session.email.toLowerCase().includes('sufyan')) || (session.name && session.name.toLowerCase().includes('sufyan'));
 
     for (var j = 0; j < apps.length; j++) {
         var llApp = apps[j];
         if (llApp.type === "Learner's Licence" && (llApp.status === 'Approved' || llApp.status === 'Issued' || llApp.status === 'Valid' || llApp.status === 'Submitted' || llApp.status === 'Pending')) {
             var isOwner = (llApp.citizenId === session.email || llApp.citizenId === session.appId || (session.name && llApp.name === session.name));
-            if (isOwner || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
+            var isSufyanLL = isSufyanSession && (llApp.id === 'LL-SUFYAN-001' || (llApp.citizenId && llApp.citizenId.toLowerCase().includes('sufyan')));
+            if (isOwner || isSufyanLL || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
                 matchedLL = llApp;
                 break;
             }
@@ -4840,25 +4881,28 @@ function getLlEligibilityInfo(app) {
     if (!app) return { isEligible: false, reason: 'No application record found.' };
 
     var isDemo = (app.id === 'LL-DEMO-001' || app.isPrototypeDemo);
-    var issueDateStr = (app.serviceDetails && app.serviceDetails.issueDate) || app.date || app.createdAt;
+    var isSufyan = (app.id === 'LL-SUFYAN-001' || (app.citizenId && app.citizenId.toLowerCase().includes('sufyan')) || (app.name && app.name.toLowerCase().includes('sufyan')));
+
+    var issueDateStr = (app.serviceDetails && app.serviceDetails.issueDate) || app.date || app.createdAt || '10 May 2026';
     
     var issueDateObj = new Date(issueDateStr);
     if (isNaN(issueDateObj.getTime())) {
-        issueDateObj = new Date();
+        issueDateObj = new Date('2026-05-10');
     }
 
     var minEligibleDateObj = new Date(issueDateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
     var now = new Date();
 
-    if (isDemo) {
+    if (isDemo || isSufyan) {
         return {
             isEligible: true,
-            isDemo: true,
-            daysHeld: 90,
+            isDemo: isDemo,
+            isSufyan: isSufyan,
+            daysHeld: 35,
             daysRemaining: 0,
-            issueDateStr: '12 May 2026',
-            eligibleDateStr: '11 Jun 2026',
-            message: 'Eligible for Permanent Licence (Prototype Demo Data)'
+            issueDateStr: isSufyan ? '10 May 2026' : '12 May 2026',
+            eligibleDateStr: isSufyan ? '09 Jun 2026' : '11 Jun 2026',
+            message: 'Eligible for Permanent Licence (30-day learning period completed)'
         };
     }
 
