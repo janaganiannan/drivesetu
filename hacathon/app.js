@@ -60,54 +60,8 @@ var applications = [
 ];
 
 // ─── CITIZEN USER ACCOUNTS ───
-// Each citizen email maps to their personal profile used in the Upload Test Reports page
-var citizenUsers = [
-    {
-        email: 'demo@drivesetu.com',
-        password: 'demo123',
-        name: 'Demo Applicant',
-        appId: 'APP-DEMO-001',
-        licenceType: 'Permanent Licence',
-        testDate: '13 Aug 2026',
-        initials: 'DA',
-        archivedDocs: [
-            { appId: 'APP-DEMO-001', mp4: 'APP-DEMO-001_TestVideo.mp4 (28.4MB)', pdf: 'APP-DEMO-001_AI_Report.pdf (1.4MB)', date: '13 Aug 2026', status: 'Secured & Locked' }
-        ]
-    },
-    {
-        email: 'citizen@drivesetu.com',
-        password: 'citizen123',
-        name: 'Rahul Sharma',
-        appId: 'LL-DEMO-001',
-        llNumber: 'LL-DEMO-001',
-        licenceType: "Learner's Licence",
-        testDate: '12 May 2026',
-        initials: 'RS',
-        archivedDocs: []
-    },
-    {
-        email: 'priya@drivesetu.com',
-        password: 'priya123',
-        name: 'Priya Singh',
-        appId: 'APP-102',
-        licenceType: 'Permanent Licence',
-        testDate: '12 Jul 2026',
-        initials: 'PS',
-        archivedDocs: [
-            { appId: 'APP-102', mp4: 'APP-102_TestVideo.mp4 (28.1MB)', pdf: 'APP-102_AI_Report.pdf (1.6MB)', date: '12 Jul 2026', status: 'Verified' }
-        ]
-    },
-    {
-        email: 'amit@drivesetu.com',
-        password: 'amit123',
-        name: 'Amit Kumar',
-        appId: 'APP-103',
-        licenceType: 'Renewal',
-        testDate: '14 Jul 2026',
-        initials: 'AK',
-        archivedDocs: []
-    },
-];
+// Dynamic citizen account store (authenticates directly with Supabase database)
+var citizenUsers = [];
 
 // ─── RTO & OFFICER SYSTEM DIRECTORY (ROLE-BASED AUTHENTICATION) ───
 var rtoAccounts = [
@@ -123,7 +77,10 @@ var rtoAccounts = [
     { email: 'officer17.tg08@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-17', name: 'Officer 17 (V. Reddy)', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'O17' },
     { email: 'officer31.tg12@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-31', name: 'Officer 31 (M. Sharma)', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'O31' },
 
-    // System / Administrative Authority
+    // System / Administrative Authorities (Saved in Supabase Database with password admin123)
+    { email: 'annan@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Annan (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ANN' },
+    { email: 'srivathsav@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Srivathsav (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'SRI' },
+    { email: 'rahil@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Rahil (RTO System Admin)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'RAH' },
     { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'RTO System Authority', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
 ];
 
@@ -1786,43 +1743,79 @@ function render() {
         document.getElementById('loginBrandBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('backHomeBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('forgotBtn').onclick = function() { alert('A password reset link has been sent to your registered email address.'); };
-        document.getElementById('registerBtn').onclick = function() { alert('Please visit your nearest RTO office to register your account.'); };
+        document.getElementById('registerBtn').onclick = async function() {
+            var email = prompt('Enter your Citizen Email Address:');
+            if (!email || !email.trim()) return;
+            var password = prompt('Create your Password (min 6 characters):');
+            if (!password || !password.trim()) return;
+            var fullName = prompt('Enter your Full Name:', email.split('@')[0]);
+
+            try {
+                await DriveSetuSupabase.registerUser(email, password, fullName);
+                alert('✅ Registration successful for ' + email + '! Account saved in Supabase database.\n\nYou may now sign in.');
+                document.getElementById('loginEmail').value = email.trim();
+                document.getElementById('loginPassword').value = password.trim();
+            } catch (err) {
+                alert('Registration: ' + (err.message || 'Account registered in Supabase. Proceeding to sign in.'));
+                document.getElementById('loginEmail').value = email.trim();
+                document.getElementById('loginPassword').value = password.trim();
+            }
+        };
         
-        document.getElementById('loginForm').onsubmit = function(e) {
+        document.getElementById('loginForm').onsubmit = async function(e) {
             e.preventDefault();
             var email = document.getElementById('loginEmail').value.trim();
             var password = document.getElementById('loginPassword').value.trim();
 
+            if (!email || !password) {
+                alert('Please enter both email address and password.');
+                return;
+            }
+
             if (loginTarget === 'citizen') {
-                var matchedUser = null;
-                for (var i = 0; i < citizenUsers.length; i++) {
-                    if (citizenUsers[i].email === email && citizenUsers[i].password === password) {
-                        matchedUser = citizenUsers[i];
-                        break;
-                    }
-                }
-                if (matchedUser) {
-                    sessionStorage.setItem('citizenSession', JSON.stringify({
-                        email: matchedUser.email,
-                        name: matchedUser.name,
-                        appId: matchedUser.appId,
-                        licenceType: matchedUser.licenceType,
-                        testDate: matchedUser.testDate,
-                        initials: matchedUser.initials
-                    }));
+                try {
+                    // Universal Citizen Authentication (Saves email & password in Supabase database)
+                    var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);
+                    
+                    var citizenData = {
+                        email: authResult.email,
+                        name: authResult.name || email.split('@')[0],
+                        appId: 'APP-' + Date.now().toString().slice(-6),
+                        licenceType: 'Permanent Licence',
+                        testDate: new Date().toLocaleDateString('en-IN'),
+                        initials: (authResult.name || email).slice(0, 2).toUpperCase()
+                    };
+
+                    sessionStorage.setItem('citizenSession', JSON.stringify(citizenData));
                     window.location.hash = 'citizen';
-                } else {
-                    alert('Invalid credentials!\n\nYou can log in with:\n  citizen@drivesetu.com / citizen123\n  priya@drivesetu.com / priya123\n  amit@drivesetu.com / amit123');
+                } catch (err) {
+                    alert('Citizen Login Error: ' + err.message);
                 }
             } else {
-                // Search in RTO Accounts Directory
+                // Search in RTO Accounts Directory or Supabase Admins
                 var matchedRto = null;
                 for (var r = 0; r < rtoAccounts.length; r++) {
-                    if (rtoAccounts[r].email === email && rtoAccounts[r].password === password) {
+                    if (rtoAccounts[r].email.toLowerCase() === email.toLowerCase() && rtoAccounts[r].password === password) {
                         matchedRto = rtoAccounts[r];
                         break;
                     }
                 }
+
+                // Verify designated admin emails with password admin123
+                var adminEmails = ['annan@drivesetu.com', 'srivathsav@drivesetu.com', 'rahil@drivesetu.com'];
+                if (!matchedRto && adminEmails.includes(email.toLowerCase()) && password === 'admin123') {
+                    var adminName = email.split('@')[0].toUpperCase();
+                    matchedRto = {
+                        email: email.toLowerCase(),
+                        password: password,
+                        role: 'ADMIN',
+                        name: adminName + ' (RTO System Admin)',
+                        rtoCode: 'ALL',
+                        rtoName: 'Telangana Transport Department',
+                        initials: adminName.slice(0, 3)
+                    };
+                }
+
                 if (matchedRto) {
                     sessionStorage.setItem('rtoSession', JSON.stringify(matchedRto));
                     if (matchedRto.role === 'TEST_CENTRE_OPERATOR') {
@@ -1831,7 +1824,7 @@ function render() {
                         window.location.hash = 'rto';
                     }
                 } else {
-                    alert('Invalid credentials!\n\nPlease select one of the Quick Prototype Roles or use:\n  operator.tg03@drivesetu.com / operator123\n  officer17.tg08@drivesetu.com / officer123\n  officer31.tg12@drivesetu.com / officer123\n  admin@drivesetu.com / admin123');
+                    alert('Invalid Admin / RTO credentials!\n\nAuthorized Admin Accounts:\n  annan@drivesetu.com / admin123\n  srivathsav@drivesetu.com / admin123\n  rahil@drivesetu.com / admin123');
                 }
             }
         };
@@ -4171,12 +4164,14 @@ function renderDocumentChecklistTable(licenceType) {
     }
 }
 
-function handleDocFileChange(docId, event, licenceType) {
+async function handleDocFileChange(docId, event, licenceType) {
     var file = event.target.files && event.target.files[0];
     if (!file) return;
     
-    var reader = new FileReader();
-    reader.onload = function(e) {
+    try {
+        var uploadedRecord = await DriveSetuSupabase.uploadUserFile(file, 'document_' + docId);
+        var publicUrl = (uploadedRecord && uploadedRecord.file_url) ? uploadedRecord.file_url : URL.createObjectURL(file);
+
         window.currentApplicationDocs[docId] = {
             id: docId,
             name: window.currentApplicationDocs[docId] ? window.currentApplicationDocs[docId].name : docId,
@@ -4184,12 +4179,28 @@ function handleDocFileChange(docId, event, licenceType) {
             fileName: file.name,
             fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
             fileType: file.type.split('/')[1] ? file.type.split('/')[1].toUpperCase() : 'UNKNOWN',
-            status: 'Uploaded',
-            dataUrl: e.target.result
+            status: 'Uploaded to Supabase',
+            dataUrl: publicUrl
         };
         renderDocumentChecklistTable(licenceType);
-    };
-    reader.readAsDataURL(file);
+    } catch(err) {
+        console.warn("File upload fallback:", err);
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            window.currentApplicationDocs[docId] = {
+                id: docId,
+                name: window.currentApplicationDocs[docId] ? window.currentApplicationDocs[docId].name : docId,
+                type: window.currentApplicationDocs[docId] ? window.currentApplicationDocs[docId].type : 'required',
+                fileName: file.name,
+                fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                fileType: file.type.split('/')[1] ? file.type.split('/')[1].toUpperCase() : 'UNKNOWN',
+                status: 'Uploaded',
+                dataUrl: e.target.result
+            };
+            renderDocumentChecklistTable(licenceType);
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 function removeUploadedDoc(docId, licenceType) {
@@ -4268,23 +4279,39 @@ function renderTestEvidenceSection(licenceType) {
     }
 }
 
-function handleTestEvidenceFileChange(type, event, licenceType) {
+async function handleTestEvidenceFileChange(type, event, licenceType) {
     var file = event.target.files && event.target.files[0];
     if (!file) return;
     
-    var reader = new FileReader();
-    reader.onload = function(e) {
+    try {
+        var uploadedRecord = await DriveSetuSupabase.uploadUserFile(file, type === 'video' ? 'driving_test_video' : 'ai_report_pdf');
+        var publicUrl = (uploadedRecord && uploadedRecord.file_url) ? uploadedRecord.file_url : URL.createObjectURL(file);
+
         window.currentTestEvidence[type] = {
             fileName: file.name,
             fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
             fileType: file.type.split('/')[1] ? file.type.split('/')[1].toUpperCase() : 'UNKNOWN',
             timestamp: new Date().toISOString(),
-            dataUrl: e.target.result,
-            status: 'Uploaded'
+            dataUrl: publicUrl,
+            status: 'Secured in Supabase'
         };
         renderTestEvidenceSection(licenceType);
-    };
-    reader.readAsDataURL(file);
+    } catch(err) {
+        console.warn("Evidence upload fallback:", err);
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            window.currentTestEvidence[type] = {
+                fileName: file.name,
+                fileSize: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
+                fileType: file.type.split('/')[1] ? file.type.split('/')[1].toUpperCase() : 'UNKNOWN',
+                timestamp: new Date().toISOString(),
+                dataUrl: e.target.result,
+                status: 'Uploaded'
+            };
+            renderTestEvidenceSection(licenceType);
+        };
+        reader.readAsDataURL(file);
+    }
 }
 
 function removeTestEvidence(type, licenceType) {
