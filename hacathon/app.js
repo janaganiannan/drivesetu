@@ -4040,6 +4040,253 @@ function generateDetailedAiReportHTML(appId) {
         '</body></html>';
 }
 
+function viewLearnerLicenceDoc(appId) {
+    var apps = getStoredApplications();
+    var app = null;
+    if (appId) {
+        for (var i = 0; i < apps.length; i++) {
+            if (apps[i].id === appId) { app = apps[i]; break; }
+        }
+    }
+    if (!app) {
+        var citizenSession = {};
+        try { citizenSession = JSON.parse(sessionStorage.getItem('citizenSession') || '{}'); } catch(e) {}
+        for (var k = 0; k < apps.length; k++) {
+            if (apps[k].type === "Learner's Licence" && ((citizenSession.email && apps[k].citizenId === citizenSession.email) || (citizenSession.name && apps[k].name === citizenSession.name))) {
+                app = apps[k];
+                break;
+            }
+        }
+    }
+    if (!app) {
+        app = {
+            id: appId || 'LL-SUFYAN-001',
+            name: 'Sufyan',
+            type: "Learner's Licence",
+            status: 'Approved',
+            date: '14 Jul 2026',
+            citizenId: 'sufyan@gmail.com',
+            vehicleClasses: ['MCWG', 'LMV'],
+            serviceDetails: {
+                rtoCode: 'TG-03',
+                rtoOfficeName: 'RTA Medchal / Hyderabad West',
+                llNumber: 'LL-SUFYAN-001',
+                issueDate: '14 Jul 2026',
+                validity: '14 Jul 2026 to 14 Jan 2027'
+            }
+        };
+    }
+
+    try {
+        if (window.jspdf && window.jspdf.jsPDF) {
+            downloadLearnerLicencePDF(app.id);
+            return;
+        }
+    } catch(e) {
+        console.warn("PDF generation error, opening printable window:", e);
+    }
+
+    var html = generateLearnerLicenceHTML(app);
+    var win = window.open('', '_blank');
+    if (win) {
+        win.document.write(html);
+        win.document.close();
+    } else {
+        alert('Please allow popups to view and print your Learner\'s Licence.');
+    }
+}
+
+function downloadLearnerLicencePDF(appId) {
+    var apps = getStoredApplications();
+    var app = null;
+    if (appId) {
+        for (var i = 0; i < apps.length; i++) {
+            if (apps[i].id === appId) { app = apps[i]; break; }
+        }
+    }
+    if (!app) {
+        app = {
+            id: appId || 'LL-SUFYAN-001',
+            name: 'Sufyan',
+            type: "Learner's Licence",
+            status: 'Approved',
+            date: '14 Jul 2026',
+            serviceDetails: {
+                rtoCode: 'TG-03',
+                rtoOfficeName: 'RTA Medchal / Hyderabad West',
+                llNumber: 'LL-SUFYAN-001',
+                issueDate: '14 Jul 2026',
+                validity: '14 Jul 2026 to 14 Jan 2027'
+            }
+        };
+    }
+
+    const { jsPDF } = window.jspdf;
+    var doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+    });
+
+    var sd = app.serviceDetails || {};
+    var llNum = sd.llNumber || app.id || 'LL-SUFYAN-001';
+    var nameStr = (app.name || 'Sufyan').toUpperCase();
+    var issueDate = sd.issueDate || app.date || '14 Jul 2026';
+    var validityDate = sd.validity || (issueDate + ' to 14 Jan 2027');
+    var rtoName = sd.rtoOfficeName || 'RTA Medchal / Hyderabad West (TG-03)';
+    var vehicleClass = (sd.vehicleClasses ? sd.vehicleClasses.join(', ') : (app.vehicleClasses ? app.vehicleClasses.join(', ') : 'MCWG, LMV'));
+
+    doc.setFillColor(20, 143, 96);
+    doc.rect(0, 0, 210, 28, 'F');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('TRANSPORT DEPARTMENT - GOVERNMENT OF TELANGANA', 105, 12, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.text('FORM 3 - LEARNER\'S LICENCE CERTIFICATE', 105, 20, { align: 'center' });
+
+    doc.setDrawColor(20, 143, 96);
+    doc.setLineWidth(0.8);
+    doc.rect(15, 36, 180, 185);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(17, 17, 17);
+    doc.text('LEARNER\'S LICENCE NO: ' + llNum, 105, 48, { align: 'center' });
+
+    doc.setDrawColor(220);
+    doc.line(25, 53, 185, 53);
+
+    doc.setFontSize(10);
+    var startY = 62;
+    var lineH = 10;
+
+    var rows = [
+        ['Licence Number:', llNum],
+        ['Full Name of Holder:', nameStr],
+        ['Application Number:', app.id],
+        ['Issuing Authority:', rtoName],
+        ['Date of Issue:', issueDate],
+        ['Valid Throughout India Until:', validityDate],
+        ['Authorised Vehicle Categories:', vehicleClass],
+        ['Licence Status:', 'APPROVED / VALID']
+    ];
+
+    for (var r = 0; r < rows.length; r++) {
+        doc.setFont('Helvetica', 'bold');
+        doc.setTextColor(100);
+        doc.text(rows[r][0], 25, startY + (r * lineH));
+
+        if (rows[r][0] === 'Licence Status:') {
+            doc.setTextColor(20, 143, 96);
+        } else {
+            doc.setTextColor(20);
+        }
+        doc.text(rows[r][1], 95, startY + (r * lineH));
+    }
+
+    doc.setDrawColor(220);
+    doc.line(25, 148, 185, 148);
+
+    doc.setFillColor(232, 247, 241);
+    doc.rect(25, 155, 160, 35, 'F');
+    doc.setDrawColor(194, 234, 216);
+    doc.rect(25, 155, 160, 35, 'S');
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(20, 143, 96);
+    doc.text('MANDATORY DRIVING RULES & CONDITIONS:', 30, 163);
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(60);
+    doc.text('1. The holder must display an "L" plate (red on white) on the front and rear of the vehicle.', 30, 170);
+    doc.text('2. The holder must be accompanied by an instructor holding a valid permanent driving licence.', 30, 176);
+    doc.text('3. Eligible to apply for a Permanent Driving Licence after completing 30 days from date of issue.', 30, 182);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text('Digitally Signed & Verified By:', 25, 205);
+    doc.text('Licensing Authority — RTA Telangana', 25, 210);
+
+    doc.setFont('Helvetica', 'bold');
+    doc.setTextColor(20, 143, 96);
+    doc.text('✔ VERIFIED DIGITAL RECORD', 185, 210, { align: 'right' });
+
+    doc.setFont('Helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('DriveSetu Digital RTO System — Government of Telangana Transport Department', 105, 230, { align: 'center' });
+
+    doc.save('Learners_Licence_' + (llNum || 'TG') + '.pdf');
+}
+
+function generateLearnerLicenceHTML(app) {
+    var sd = app.serviceDetails || {};
+    var llNum = sd.llNumber || app.id || 'LL-SUFYAN-001';
+    var nameStr = (app.name || 'Sufyan').toUpperCase();
+    var issueDate = sd.issueDate || app.date || '14 Jul 2026';
+    var validityDate = sd.validity || (issueDate + ' to 14 Jan 2027');
+    var rtoName = sd.rtoOfficeName || 'RTA Medchal / Hyderabad West (TG-03)';
+    var vehicleClass = (sd.vehicleClasses ? sd.vehicleClasses.join(', ') : (app.vehicleClasses ? app.vehicleClasses.join(', ') : 'MCWG, LMV'));
+
+    return '<!DOCTYPE html><html><head><title>Learners Licence - ' + llNum + '</title>' +
+        '<style>' +
+            'body { font-family: "Segoe UI", Arial, sans-serif; background:#f4f6f8; margin:0; padding:20px; color:#1e293b; }' +
+            '.cert-card { max-width:700px; margin:0 auto; background:#fff; border-radius:12px; border:2px solid #10b981; box-shadow:0 10px 25px rgba(0,0,0,0.1); overflow:hidden; }' +
+            '.cert-header { background:linear-gradient(135deg, #10b981, #059669); color:#fff; padding:20px; text-align:center; }' +
+            '.cert-header h1 { margin:0; font-size:1.2rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; }' +
+            '.cert-header p { margin:5px 0 0 0; font-size:0.85rem; opacity:0.9; }' +
+            '.cert-body { padding:25px; }' +
+            '.ll-badge { display:inline-block; background:#e8f7f1; color:#059669; padding:6px 14px; border-radius:20px; font-weight:700; font-size:0.85rem; margin-bottom:15px; }' +
+            '.grid-table { width:100%; border-collapse:collapse; margin-bottom:20px; }' +
+            '.grid-table td { padding:10px 12px; font-size:0.9rem; border-bottom:1px solid #e2e8f0; }' +
+            '.grid-table td.label { color:#64748b; font-weight:600; width:40%; }' +
+            '.grid-table td.value { font-weight:700; color:#0f172a; }' +
+            '.rules-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:15px; font-size:0.82rem; color:#166534; line-height:1.6; margin-bottom:20px; }' +
+            '.cert-footer { display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; padding-top:15px; font-size:0.8rem; color:#64748b; }' +
+            '@media print { body { background:#fff; padding:0; } .cert-card { box-shadow:none; border:1px solid #000; } button { display:none; } }' +
+        '</style></head><body>' +
+        '<div style="max-width:700px; margin:0 auto 15px auto; text-align:right;">' +
+            '<button onclick="window.print()" style="background:#10b981; color:#fff; border:none; padding:8px 18px; border-radius:6px; font-weight:700; cursor:pointer;">🖨️ Print / Save PDF</button>' +
+        '</div>' +
+        '<div class="cert-card">' +
+            '<div class="cert-header">' +
+                '<h1>Transport Department — Government of Telangana</h1>' +
+                '<p>FORM 3 — LEARNER\'S LICENCE CERTIFICATE</p>' +
+            '</div>' +
+            '<div class="cert-body">' +
+                '<div style="text-align:center;">' +
+                    '<span class="ll-badge">✔ OFFICIAL LEARNER\'S LICENCE ISSUED</span>' +
+                    '<h2 style="margin:0 0 15px 0; font-size:1.3rem; color:#0f172a;">LICENCE NO: ' + llNum + '</h2>' +
+                '</div>' +
+                '<table class="grid-table">' +
+                    '<tr><td class="label">Full Name of Holder:</td><td class="value">' + nameStr + '</td></tr>' +
+                    '<tr><td class="label">Application Number:</td><td class="value">' + app.id + '</td></tr>' +
+                    '<tr><td class="label">Issuing RTO Authority:</td><td class="value">' + rtoName + '</td></tr>' +
+                    '<tr><td class="label">Date of Issue:</td><td class="value">' + issueDate + '</td></tr>' +
+                    '<tr><td class="label">Validity Period:</td><td class="value">' + validityDate + '</td></tr>' +
+                    '<tr><td class="label">Allowed Vehicle Categories:</td><td class="value">' + vehicleClass + '</td></tr>' +
+                    '<tr><td class="label">Status:</td><td class="value" style="color:#10b981;">● APPROVED & VALID</td></tr>' +
+                '</table>' +
+                '<div class="rules-box">' +
+                    '<strong>Mandatory Learner Driving Rules:</strong><br>' +
+                    '1. Display prominent red "L" plates on front and rear of vehicle.<br>' +
+                    '2. Must be accompanied by a driver holding a valid permanent driving licence.<br>' +
+                    '3. Eligible to apply for Permanent Driving Licence test after 30 days from issue.' +
+                '</div>' +
+                '<div class="cert-footer">' +
+                    '<div>Digitally Signed & Certified by Licensing Authority</div>' +
+                    '<div style="font-weight:700; color:#10b981;">DriveSetu Digital RTO</div>' +
+                '</div>' +
+            '</div>' +
+        '</div></body></html>';
+}
+
 function viewPdfDocument(appId) {
     var targetId = appId || 'APP-206500';
     var docHTML = generateDetailedAiReportHTML(targetId);
