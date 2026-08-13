@@ -6874,13 +6874,13 @@ function renderTestCentrePage() {
                             '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
                                 '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Identity Verification</div>' +
                                 (idVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Identity Verified (Face Match 99.8%)</div>' +
+                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Identity Verified (Face Match 99.8%)</div>'
                                     : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyIdentity()"><i class="fa-solid fa-camera"></i> Verify Identity</button>') +
                             '</div>' +
                             '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
                                 '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Appointment Verification</div>' +
                                 (apptVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Appointment Verified (Slot Confirmed)</div>' +
+                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Appointment Verified (Slot Confirmed)</div>'
                                     : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyAppointment()"><i class="fa-solid fa-calendar-check"></i> Verify Appointment</button>') +
                             '</div>' +
                         '</div>' +
@@ -6888,7 +6888,7 @@ function renderTestCentrePage() {
 
                     '<!-- START TEST BUTTON -->' +
                     (isReadyToStart
-                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>' +
+                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>'
                         : '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem; opacity:0.6; cursor:not-allowed;" disabled><i class="fa-solid fa-lock"></i> Verify Identity & Appointment to Enable Test</button>') +
                 '</div>' +
             '</div>';
