@@ -6347,20 +6347,43 @@ if (!window.testCentreState) {
         appointmentVerified: false,
         testTimerSeconds: 0,
         timerInterval: null,
-        telemetryInterval: null,
-        telemetryIndex: 0,
+        isPlaying: true,
+        isMuted: false,
         eventsLog: []
     };
+}
+
+function getDeterministicTelemetry(sec) {
+    if (sec <= 5) {
+        return { speed: '8 km/h', accel: '+0.8 m/s²', braking: 'None', lateral: '0.00 m (SAFE)', turning: 'Straight Launch', position: 'Start Line Zone' };
+    } else if (sec <= 12) {
+        return { speed: '14 km/h', accel: '+0.4 m/s²', braking: 'Normal', lateral: '0.08 m (OPTIMAL)', turning: 'Track Entry', position: 'Outer Track Entry' };
+    } else if (sec <= 20) {
+        return { speed: '16 km/h', accel: '+0.2 m/s²', braking: 'Normal', lateral: '0.12 m (SAFE)', turning: 'Right Turn (Curve 1)', position: 'Within Track Bounds' };
+    } else if (sec <= 27) {
+        return { speed: '15 km/h', accel: '-0.1 m/s²', braking: 'Normal', lateral: '0.10 m (SAFE)', turning: 'Left Turn (8-Track)', position: 'Figure-8 Center Loop' };
+    } else if (sec <= 34) {
+        return { speed: '12 km/h', accel: '-0.4 m/s²', braking: 'Active (40%)', lateral: '0.28 m (ELEVATED)', turning: 'Sharp Right', position: 'Approaching Outer Line' };
+    } else {
+        return { speed: '8 km/h', accel: '-0.8 m/s²', braking: 'Active (85%)', lateral: '0.04 m (OPTIMAL)', turning: 'Straight', position: 'Stop Line / Finish Zone' };
+    }
+}
+
+function getDeterministicLogs(sec) {
+    var logs = [];
+    if (sec >= 2) logs.push({ time: '00:02', text: '✓ Helmet & Safety Gear Confirmed', type: 'success' });
+    if (sec >= 6) logs.push({ time: '00:06', text: '✓ Vehicle Ignition & Smooth Track Launch', type: 'success' });
+    if (sec >= 14) logs.push({ time: '00:14', text: '✓ Curved Track Entry Detected', type: 'success' });
+    if (sec >= 21) logs.push({ time: '00:21', text: '✓ Stable Vehicle Control (Figure-8 Navigation)', type: 'success' });
+    if (sec >= 28) logs.push({ time: '00:28', text: '⚠ Approaching Outer Track Boundary', type: 'warning' });
+    if (sec >= 36) logs.push({ time: '00:36', text: '✓ Stop-Line Pressure Sensor Activated (Zero Rollback)', type: 'success' });
+    return logs;
 }
 
 function stopTestCentreTimers() {
     if (window.testCentreState.timerInterval) {
         clearInterval(window.testCentreState.timerInterval);
         window.testCentreState.timerInterval = null;
-    }
-    if (window.testCentreState.telemetryInterval) {
-        clearInterval(window.testCentreState.telemetryInterval);
-        window.testCentreState.telemetryInterval = null;
     }
 }
 
@@ -6373,8 +6396,8 @@ function resetTestCentreWorkflow() {
         appointmentVerified: false,
         testTimerSeconds: 0,
         timerInterval: null,
-        telemetryInterval: null,
-        telemetryIndex: 0,
+        isPlaying: true,
+        isMuted: false,
         eventsLog: []
     };
     render();
@@ -6387,7 +6410,7 @@ function testCentreSearchApp(appIdSearch) {
         if (input) searchId = input.value.trim().toUpperCase();
     }
     if (!searchId) {
-        alert('Please enter an Application ID (e.g. APP-849201 or APP-101).');
+        alert('Please enter an Application ID (e.g. APP-206500 or APP-DEMO-001).');
         return;
     }
 
@@ -6428,6 +6451,133 @@ function formatTestTimer(sec) {
     return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
 }
 
+function updateTestSessionUI(sec) {
+    if (sec > 40) sec = 40;
+    window.testCentreState.testTimerSeconds = sec;
+    var formatted = formatTestTimer(sec);
+
+    var recEl = document.getElementById('recTimerOverlay');
+    if (recEl) recEl.textContent = formatted;
+
+    var camRecEl = document.getElementById('cameraRecTime');
+    if (camRecEl) camRecEl.textContent = formatted;
+
+    var vTimeEl = document.getElementById('videoTimeDisplay');
+    if (vTimeEl) vTimeEl.textContent = formatted + ' / 00:40';
+
+    var sliderEl = document.getElementById('videoTimelineSlider');
+    if (sliderEl) sliderEl.value = sec;
+
+    // Telemetry updates
+    var p = getDeterministicTelemetry(sec);
+    var spEl = document.getElementById('telemetrySpeed');
+    if (spEl) spEl.textContent = p.speed;
+
+    var acEl = document.getElementById('telemetryAccel');
+    if (acEl) acEl.textContent = p.accel;
+
+    var brEl = document.getElementById('telemetryBraking');
+    if (brEl) brEl.textContent = p.braking;
+
+    var latEl = document.getElementById('telemetryLateral');
+    if (latEl) latEl.textContent = p.lateral;
+
+    var trnEl = document.getElementById('telemetryTurning');
+    if (trnEl) trnEl.textContent = p.turning;
+
+    var posEl = document.getElementById('telemetryPosition');
+    if (posEl) posEl.textContent = p.position;
+
+    // Video frame view switching
+    var imgEl = document.getElementById('testCameraFeedImg');
+    if (imgEl) {
+        if (sec >= 20) {
+            if (!imgEl.src.includes('rto_driving_test_camera_2.jpg')) {
+                imgEl.src = 'rto_driving_test_camera_2.jpg';
+            }
+        } else {
+            if (!imgEl.src.includes('rto_driving_test_camera.jpg')) {
+                imgEl.src = 'rto_driving_test_camera.jpg';
+            }
+        }
+    }
+
+    // AI Logs update
+    var logs = getDeterministicLogs(sec);
+    var logBox = document.getElementById('aiEventLogStream');
+    if (logBox) {
+        logBox.innerHTML = logs.map(function(ev) {
+            var colorStyle = ev.type === 'warning' ? 'color:#fbbf24;' : 'color:#34d399;';
+            return '<div style="' + colorStyle + ' margin-bottom:0.4rem;"><strong style="color:#94a3b8;">[' + ev.time + ']</strong> ' + ev.text + '</div>';
+        }).join('');
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // End of test video handling
+    if (sec >= 40) {
+        stopTestCentreTimers();
+        window.testCentreState.isPlaying = false;
+        var badgeEl = document.getElementById('recordingStatusBadge');
+        if (badgeEl) {
+            badgeEl.style.background = '#10b981';
+            badgeEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> TEST RECORDING COMPLETE';
+        }
+        var playBtn = document.getElementById('videoPlayPauseBtn');
+        if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
+    }
+}
+
+function toggleTestVideoPlay() {
+    if (window.testCentreState.isPlaying) {
+        stopTestCentreTimers();
+        window.testCentreState.isPlaying = false;
+        var playBtn = document.getElementById('videoPlayPauseBtn');
+        if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+    } else {
+        if (window.testCentreState.testTimerSeconds >= 40) {
+            window.testCentreState.testTimerSeconds = 0;
+        }
+        window.testCentreState.isPlaying = true;
+        var playBtn2 = document.getElementById('videoPlayPauseBtn');
+        if (playBtn2) playBtn2.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        startSessionTimer();
+    }
+}
+
+function seekTestVideoTimeline(val) {
+    var sec = parseInt(val, 10) || 0;
+    updateTestSessionUI(sec);
+}
+
+function toggleTestVideoMute() {
+    window.testCentreState.isMuted = !window.testCentreState.isMuted;
+    var icon = document.getElementById('videoMuteIcon');
+    if (icon) {
+        icon.className = window.testCentreState.isMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high';
+    }
+}
+
+function toggleTestVideoFullscreen() {
+    var wrapper = document.querySelector('.camera-video-wrapper');
+    if (!wrapper) wrapper = document.getElementById('testCameraFeedImg');
+    if (wrapper) {
+        if (!document.fullscreenElement) {
+            if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+        }
+    }
+}
+
+function startSessionTimer() {
+    stopTestCentreTimers();
+    window.testCentreState.timerInterval = setInterval(function() {
+        if (window.testCentreState.step !== 'in_progress') return;
+        var nextSec = window.testCentreState.testTimerSeconds + 1;
+        updateTestSessionUI(nextSec);
+    }, 1000);
+}
+
 function testCentreStartTest() {
     if (!window.testCentreState.identityVerified || !window.testCentreState.appointmentVerified) {
         alert('Please complete Identity Verification and Appointment Verification before starting the test.');
@@ -6437,87 +6587,9 @@ function testCentreStartTest() {
     stopTestCentreTimers();
     window.testCentreState.step = 'in_progress';
     window.testCentreState.testTimerSeconds = 0;
-    window.testCentreState.telemetryIndex = 0;
-    window.testCentreState.eventsLog = [
-        { time: '00:02', text: '✓ Helmet & Safety Gear Confirmed', type: 'success' },
-        { time: '00:06', text: '✓ Vehicle Ignition & Smooth Track Launch', type: 'success' }
-    ];
+    window.testCentreState.isPlaying = true;
 
-    // Live Timer Interval (1 second)
-    window.testCentreState.timerInterval = setInterval(function() {
-        if (window.testCentreState.step !== 'in_progress') return;
-        window.testCentreState.testTimerSeconds++;
-        var formatted = formatTestTimer(window.testCentreState.testTimerSeconds);
-
-        var tEl = document.getElementById('testSessionTimer');
-        if (tEl) tEl.textContent = formatted;
-
-        var recEl = document.getElementById('recTimerOverlay');
-        if (recEl) recEl.textContent = formatted;
-
-        var sec = window.testCentreState.testTimerSeconds;
-        var newEvent = null;
-
-        if (sec === 14) {
-            newEvent = { time: formatted, text: '✓ 8-Track Loop Entry Detected (Speed: 16 km/h)', type: 'success' };
-        } else if (sec === 28) {
-            newEvent = { time: formatted, text: '⚠ Potential Path Deviation / Line Proximity (Distance: 0.8m)', type: 'warning' };
-        } else if (sec === 42) {
-            newEvent = { time: formatted, text: '✓ Reverse S-Bend Manoeuvre Executed Cleanly', type: 'success' };
-        } else if (sec === 55) {
-            newEvent = { time: formatted, text: '✓ Stop-Line Pressure Sensor Activated (Zero Rollback)', type: 'success' };
-        }
-
-        if (newEvent) {
-            window.testCentreState.eventsLog.push(newEvent);
-            var logBox = document.getElementById('aiEventLogStream');
-            if (logBox) {
-                var colorStyle = newEvent.type === 'warning' ? 'color:#fbbf24;' : 'color:#34d399;';
-                logBox.innerHTML += '<div style="' + colorStyle + ' margin-bottom:0.4rem;"><strong style="color:#94a3b8;">[' + newEvent.time + ']</strong> ' + newEvent.text + '</div>';
-                logBox.scrollTop = logBox.scrollHeight;
-            }
-        }
-    }, 1000);
-
-    // Live Telemetry Simulation Interval (1.2 seconds)
-    var telemetryPresets = [
-        { speed: '14 km/h', accel: '+0.4 m/s²', braking: 'Normal', lateral: '0.12 m (SAFE)', turning: 'Left Curve (8-Track)', position: 'Within Track Bounds', carX: 120, carY: 85 },
-        { speed: '18 km/h', accel: '+0.7 m/s²', braking: 'Normal', lateral: '0.08 m (OPTIMAL)', turning: '8-Track Loop Center', position: 'Optimal Lane Center', carX: 200, carY: 130 },
-        { speed: '22 km/h', accel: '+0.9 m/s²', braking: 'Normal', lateral: '0.24 m (WARNING)', turning: 'Right S-Bend Entry', position: 'Approaching Outer Line', carX: 280, carY: 85 },
-        { speed: '16 km/h', accel: '-0.3 m/s²', braking: 'Active (60%)', lateral: '0.14 m (SAFE)', turning: 'S-Curve Apex', position: 'Within Track Bounds', carX: 350, carY: 130 },
-        { speed: '8 km/h', accel: '-0.6 m/s²', braking: 'Active (82%)', lateral: '0.05 m (OPTIMAL)', turning: 'Stop-Line Approach', position: 'Zero Rollback Line', carX: 420, carY: 85 }
-    ];
-
-    window.testCentreState.telemetryInterval = setInterval(function() {
-        if (window.testCentreState.step !== 'in_progress') return;
-        window.testCentreState.telemetryIndex = (window.testCentreState.telemetryIndex + 1) % telemetryPresets.length;
-        var p = telemetryPresets[window.testCentreState.telemetryIndex];
-
-        var spEl = document.getElementById('telemetrySpeed');
-        if (spEl) spEl.textContent = p.speed;
-
-        var acEl = document.getElementById('telemetryAccel');
-        if (acEl) acEl.textContent = p.accel;
-
-        var brEl = document.getElementById('telemetryBraking');
-        if (brEl) brEl.textContent = p.braking;
-
-        var latEl = document.getElementById('telemetryLateral');
-        if (latEl) latEl.textContent = p.lateral;
-
-        var trnEl = document.getElementById('telemetryTurning');
-        if (trnEl) trnEl.textContent = p.turning;
-
-        var posEl = document.getElementById('telemetryPosition');
-        if (posEl) posEl.textContent = p.position;
-
-        var carDot = document.getElementById('simulatedCarMarker');
-        if (carDot) {
-            carDot.setAttribute('cx', p.carX);
-            carDot.setAttribute('cy', p.carY);
-        }
-    }, 1200);
-
+    startSessionTimer();
     render();
 }
 
@@ -6539,11 +6611,13 @@ function testCentreSendToRto() {
     var apps = getStoredApplications();
     var reviews = getStoredReviews();
 
-    var evidenceId = 'EV-206500';
+    var appCode = app.id.replace('APP-', '');
+    var evidenceId = 'EV-' + appCode;
     var sha256Hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
     var testRto = (app.serviceDetails && app.serviceDetails.rtoCode) ? app.serviceDetails.rtoCode : 'TG-03';
-    var videoFileName = 'APP' + app.id.replace('APP-', '') + '_TrackTest_Video.mp4';
-    var pdfFileName = 'RTO_AI_Report_' + app.id.replace('APP-', '') + '.pdf';
+    var videoFileName = app.id + '_TestVideo.mp4';
+    var pdfFileName = app.id + '_AI_Report.pdf';
+    var telemetryFileName = app.id + '_Telemetry';
     var timestampStr = new Date().toISOString();
 
     // ── Execute Dual Randomized Allocation Engine ──
@@ -6561,8 +6635,13 @@ function testCentreSendToRto() {
             fileSize: '28.4MB',
             fileType: 'video/mp4',
             timestamp: timestampStr,
-            dataUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
+            dataUrl: 'rto_driving_test_camera.jpg',
             status: 'Secured & Locked'
+        },
+        telemetry: {
+            fileName: telemetryFileName,
+            fileType: 'application/json',
+            status: 'Secured & Synchronized'
         },
         aiReport: {
             fileName: pdfFileName + ' (1.4MB)',
@@ -6616,8 +6695,8 @@ function testCentreSendToRto() {
 
     // Create IMMUTABLE audit events for test completion
     appendAuditEvent(app.id, 'TEST_CONDUCTED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Driving test physically conducted at ' + testRto);
-    appendAuditEvent(app.id, 'EVIDENCE_LOCKED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Evidence Package locked (EV-206500) with SHA-256 integrity hash.');
-    appendAuditEvent(app.id, 'AI_REPORT_GENERATED', 'AI System', 'SYSTEM_AI', 'AI telemetry analysis completed. Telemetry score: 95/100.');
+    appendAuditEvent(app.id, 'EVIDENCE_LOCKED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Evidence Package locked (' + evidenceId + ') with SHA-256 integrity hash.');
+    appendAuditEvent(app.id, 'AI_REPORT_GENERATED', 'AI System', 'SYSTEM_AI', 'AI telemetry analysis completed. Telemetry score: 92/100.');
     appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Evaluator 1 automatically allocated: ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ')');
     appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Evaluator 2 automatically allocated: ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ')');
 
@@ -6629,7 +6708,7 @@ function testCentreSendToRto() {
             reviews[r].mp4Name = evidenceObj.video.fileName;
             reviews[r].pdfName = evidenceObj.aiReport.fileName;
             reviews[r].videoDataUrl = evidenceObj.video.dataUrl;
-            reviews[r].notes = 'Driving test completed at TG-03. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').';
+            reviews[r].notes = 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').';
             reviews[r].submittedOn = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'});
             reviewFound = true;
             break;
@@ -6644,7 +6723,7 @@ function testCentreSendToRto() {
             pdfName: evidenceObj.aiReport.fileName,
             videoDataUrl: evidenceObj.video.dataUrl,
             pdfDataUrl: '',
-            notes: 'Driving test completed at TG-03. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').',
+            notes: 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').',
             submittedOn: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
             status: 'Pending Review',
             reviewedBy: null
@@ -6740,6 +6819,7 @@ function renderTestCentrePage() {
 
     var app = state.matchedApp;
     var sd = app.serviceDetails || {};
+    var videoName = app.id + '_TestVideo.mp4';
 
     if (state.step === 'found') {
         var idVerified = state.identityVerified;
@@ -6773,7 +6853,7 @@ function renderTestCentrePage() {
                         '</div>' +
                     '</div>' +
 
-                    '<!-- Pre-Test Verification Box (Requirement 3) -->' +
+                    '<!-- Pre-Test Verification Box -->' +
                     '<div style="background:#f8faf9; border:1px solid var(--border); border-radius:var(--radius-md); padding:1.5rem; margin-bottom:1.5rem;">' +
                         '<h4 style="font-size:0.95rem; font-weight:700; color:var(--text-main); margin-bottom:0.5rem;"><i class="fa-solid fa-user-check" style="color:var(--primary);"></i> APPLICANT PRE-TEST VERIFICATION</h4>' +
                         '<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1.25rem;">Complete physical applicant verification prior to initializing automated track cameras and vehicle OBD-II telemetry hardware.</p>' +
@@ -6794,7 +6874,7 @@ function renderTestCentrePage() {
                         '</div>' +
                     '</div>' +
 
-                    '<!-- START TEST BUTTON (Enabled only after both verifications) -->' +
+                    '<!-- START TEST BUTTON -->' +
                     (isReadyToStart
                         ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>'
                         : '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem; opacity:0.6; cursor:not-allowed;" disabled><i class="fa-solid fa-lock"></i> Verify Identity & Appointment to Enable Test</button>') +
@@ -6804,8 +6884,10 @@ function renderTestCentrePage() {
 
     if (state.step === 'in_progress') {
         var timerStr = formatTestTimer(state.testTimerSeconds || 0);
+        var initialTelemetry = getDeterministicTelemetry(state.testTimerSeconds || 0);
+        var initialLogs = getDeterministicLogs(state.testTimerSeconds || 0);
 
-        var eventsHTML = (state.eventsLog || []).map(function(ev) {
+        var eventsHTML = initialLogs.map(function(ev) {
             var colorStyle = ev.type === 'warning' ? 'color:#fbbf24;' : 'color:#34d399;';
             return '<div style="' + colorStyle + ' margin-bottom:0.4rem;"><strong style="color:#94a3b8;">[' + ev.time + ']</strong> ' + ev.text + '</div>';
         }).join('');
@@ -6820,12 +6902,12 @@ function renderTestCentrePage() {
                             '<p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Physical Test Centre: <strong>RTA Medchal (TG-03)</strong> &nbsp;•&nbsp; Application ID: <strong>' + app.id + '</strong> &nbsp;•&nbsp; Candidate: <strong>' + app.name + '</strong> &nbsp;•&nbsp; Vehicle: <strong>MCWG, LMV</strong></p>' +
                         '</div>' +
                         '<div style="text-align:right;">' +
-                            '<span class="badge" style="background:#ef4444; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem; margin-right:0.4rem;"><i class="fa-solid fa-circle-dot animate-pulse"></i> RECORDING</span>' +
+                            '<span id="recordingStatusBadge" class="badge" style="background:#ef4444; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem; margin-right:0.4rem;"><i class="fa-solid fa-circle-dot animate-pulse"></i> RECORDING</span>' +
                             '<span class="badge" style="background:#10b981; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem;"><i class="fa-solid fa-wifi"></i> CONNECTED</span>' +
                         '</div>' +
                     '</div>' +
 
-                    '<!-- Test Progress Stepper (Requirement 10) -->' +
+                    '<!-- Test Progress Stepper -->' +
                     '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.6rem 1rem; font-size:0.75rem; font-weight:700;">' +
                         '<span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> TEST STARTED</span>' +
                         '<span style="color:#e2e8f0;">➔</span>' +
@@ -6839,37 +6921,52 @@ function renderTestCentrePage() {
                     '</div>' +
                 '</div>' +
 
-                '<!-- Grid 2: Camera Feed + Vehicle Sensor Telemetry -->' +
+                '<!-- Grid 2: Real Camera Feed + Vehicle Sensor Telemetry -->' +
                 '<div class="grid-2" style="grid-template-columns: 1.3fr 1fr; gap:1.25rem; margin-bottom:1.25rem;">' +
-                    '<!-- LIVE CAMERA SIMULATION PANEL (Requirement 5) -->' +
-                    '<div class="card" style="padding:1.25rem; background:#0f172a; color:#fff;">' +
+                    '<!-- 1. CAMERA PANEL (REPLACED GREEN DOT WITH REAL VIDEO FEED & OVERLAYS) -->' +
+                    '<div class="card camera-video-wrapper" style="padding:1.25rem; background:#0f172a; color:#fff;">' +
                         '<div class="flex-between" style="border-bottom:1px solid #334155; padding-bottom:0.5rem; margin-bottom:0.75rem; font-size:0.8rem;">' +
                             '<span style="font-weight:700; color:#38bdf8;"><i class="fa-solid fa-video"></i> PROTOTYPE CAMERA SIMULATION</span>' +
                             '<span style="background:#ef4444; color:#fff; font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">● REC <span id="recTimerOverlay">' + timerStr + '</span></span>' +
                         '</div>' +
                         
-                        '<!-- SVG Simulated Track Visual -->' +
-                        '<div style="position:relative; width:100%; height:230px; background:#1e293b; border:1px solid #334155; border-radius:6px; overflow:hidden;">' +
-                            '<svg width="100%" height="100%" viewBox="0 0 500 200" preserveAspectRatio="none">' +
-                                '<rect width="500" height="200" fill="#0f172a"/>' +
-                                '<!-- Track asphalt background -->' +
-                                '<path d="M 50 100 Q 150 20, 250 100 T 450 100" fill="none" stroke="#334155" stroke-width="44" stroke-linecap="round"/>' +
-                                '<path d="M 50 100 Q 150 20, 250 100 T 450 100" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="8 6"/>' +
-                                '<!-- Stop Line -->' +
-                                '<line x1="420" y1="60" x2="420" y2="140" stroke="#ef4444" stroke-width="6"/>' +
-                                '<text x="425" y="105" fill="#ef4444" font-size="10" font-weight="bold">STOP LINE</text>' +
-                                '<!-- Start Zone -->' +
-                                '<text x="55" y="105" fill="#10b981" font-size="10" font-weight="bold">START</text>' +
-                                '<!-- Simulated Vehicle Car Dot -->' +
-                                '<circle id="simulatedCarMarker" cx="120" cy="85" r="10" fill="#10b981" stroke="#ffffff" stroke-width="3"/>' +
-                            '</svg>' +
-                            '<div style="position:absolute; bottom:8px; left:10px; font-size:0.7rem; color:#94a3b8; background:rgba(0,0,0,0.6); padding:2px 8px; border-radius:4px;">' +
-                                'CAM-01 OVERHEAD TRACK FEED &nbsp;•&nbsp; 1080p 60FPS' +
+                        '<!-- REAL MOTORCYCLE TEST TRACK VIDEO / HIGH-RES CAMERA DISPLAY -->' +
+                        '<div style="position:relative; width:100%; height:250px; background:#000; border:1px solid #334155; border-radius:6px; overflow:hidden;">' +
+                            '<img id="testCameraFeedImg" src="rto_driving_test_camera.jpg" alt="RTO Motorcycle Test Track Camera" style="width:100%; height:100%; object-fit:cover; display:block; transition: opacity 0.5s ease;">' +
+                            
+                            '<!-- TOP LEFT OVERLAY -->' +
+                            '<div style="position:absolute; top:10px; left:10px; font-size:0.72rem; font-family:monospace; color:#38bdf8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid rgba(56,189,248,0.3); font-weight:bold; letter-spacing:0.5px;">' +
+                                'CAM-01 • TEST TRACK CAMERA' +
                             '</div>' +
+
+                            '<!-- TOP RIGHT OVERLAY -->' +
+                            '<div style="position:absolute; top:10px; right:10px; font-size:0.72rem; font-family:monospace; color:#ef4444; background:rgba(0,0,0,0.75); padding:3px 8px; border-radius:4px; border:1px solid rgba(239,68,68,0.4); font-weight:bold;">' +
+                                '<i class="fa-solid fa-circle animate-pulse" style="font-size:0.6rem; margin-right:4px;"></i> REC <span id="cameraRecTime">' + timerStr + '</span>' +
+                            '</div>' +
+
+                            '<!-- BOTTOM OVERLAY -->' +
+                            '<div style="position:absolute; bottom:10px; left:10px; font-size:0.7rem; font-family:monospace; color:#94a3b8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid #334155;">' +
+                                'LIVE TEST EVIDENCE • 1080p • ' + videoName + '' +
+                            '</div>' +
+                        '</div>' +
+
+                        '<!-- PROFESSIONAL VIDEO PLAYER CONTROLS BAR -->' +
+                        '<div style="background:#1e293b; border-top:1px solid #334155; border-radius:0 0 6px 6px; padding:0.6rem 0.8rem; display:flex; align-items:center; gap:0.75rem; margin-top:-1px;">' +
+                            '<button type="button" id="videoPlayPauseBtn" onclick="toggleTestVideoPlay()" style="background:none; border:none; color:#38bdf8; font-size:1.1rem; cursor:pointer; padding:0 4px;" title="Play / Pause">' +
+                                '<i class="fa-solid fa-pause"></i>' +
+                            '</button>' +
+                            '<input type="range" id="videoTimelineSlider" min="0" max="40" value="' + (state.testTimerSeconds || 0) + '" oninput="seekTestVideoTimeline(this.value)" style="flex:1; accent-color:#38bdf8; cursor:pointer; height:4px;">' +
+                            '<span id="videoTimeDisplay" style="font-size:0.72rem; font-family:monospace; color:#cbd5e1; white-space:nowrap;">' + timerStr + ' / 00:40</span>' +
+                            '<button type="button" onclick="toggleTestVideoMute()" style="background:none; border:none; color:#94a3b8; font-size:0.95rem; cursor:pointer;" title="Volume">' +
+                                '<i id="videoMuteIcon" class="fa-solid fa-volume-high"></i>' +
+                            '</button>' +
+                            '<button type="button" onclick="toggleTestVideoFullscreen()" style="background:none; border:none; color:#94a3b8; font-size:0.95rem; cursor:pointer;" title="Fullscreen">' +
+                                '<i class="fa-solid fa-expand"></i>' +
+                            '</button>' +
                         '</div>' +
                     '</div>' +
 
-                    '<!-- LIVE VEHICLE SENSOR TELEMETRY PANEL (Requirement 6) -->' +
+                    '<!-- 5. LIVE VEHICLE SENSOR TELEMETRY PANEL -->' +
                     '<div class="card" style="padding:1.25rem;">' +
                         '<div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
                             '<i class="fa-solid fa-gauge-high" style="color:var(--primary);"></i> PROTOTYPE VEHICLE SENSOR SIMULATION' +
@@ -6877,35 +6974,35 @@ function renderTestCentrePage() {
                         '<div style="display:flex; flex-direction:column; gap:0.6rem; font-size:0.82rem;">' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Vehicle Speed:</span>' +
-                                '<strong id="telemetrySpeed" style="color:#10b981;">14 km/h</strong>' +
+                                '<strong id="telemetrySpeed" style="color:#10b981;">' + initialTelemetry.speed + '</strong>' +
                             '</div>' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Acceleration:</span>' +
-                                '<strong id="telemetryAccel">+0.4 m/s²</strong>' +
+                                '<strong id="telemetryAccel">' + initialTelemetry.accel + '</strong>' +
                             '</div>' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Braking Status:</span>' +
-                                '<strong id="telemetryBraking">Normal</strong>' +
+                                '<strong id="telemetryBraking">' + initialTelemetry.braking + '</strong>' +
                             '</div>' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Lateral Movement:</span>' +
-                                '<strong id="telemetryLateral">0.12 m (SAFE)</strong>' +
+                                '<strong id="telemetryLateral">' + initialTelemetry.lateral + '</strong>' +
                             '</div>' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Steering / Turning:</span>' +
-                                '<strong id="telemetryTurning">Left Curve (8-Track)</strong>' +
+                                '<strong id="telemetryTurning">' + initialTelemetry.turning + '</strong>' +
                             '</div>' +
                             '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Vehicle Position:</span>' +
-                                '<strong id="telemetryPosition">Within Track Bounds</strong>' +
+                                '<strong id="telemetryPosition">' + initialTelemetry.position + '</strong>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
 
-                '<!-- Grid 2: AI Live Event Stream & AI Analysis Summary (Requirements 7, 8, 9) -->' +
+                '<!-- Grid 2: AI Live Event Stream & AI Analysis Summary -->' +
                 '<div class="grid-2" style="grid-template-columns: 1.3fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">' +
-                    '<!-- AI LIVE OBSERVATIONS TERMINAL -->' +
+                    '<!-- 6. AI LIVE OBSERVATIONS TERMINAL -->' +
                     '<div class="card" style="padding:1.25rem; background:#090d16; color:#fff;">' +
                         '<div class="flex-between" style="border-bottom:1px solid #1e293b; padding-bottom:0.5rem; margin-bottom:0.75rem; font-size:0.8rem;">' +
                             '<span style="font-weight:700; color:#34d399;"><i class="fa-solid fa-bolt"></i> AI LIVE OBSERVATIONS (TIMESTAMPED LOG)</span>' +
@@ -6916,15 +7013,15 @@ function renderTestCentrePage() {
                         '</div>' +
                     '</div>' +
 
-                    '<!-- LIVE AI ANALYSIS PANEL -->' +
+                    '<!-- 7. LIVE AI ANALYSIS PANEL -->' +
                     '<div class="card" style="padding:1.25rem;">' +
                         '<div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:0.6rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
                             '<i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI ANALYSIS SUMMARY' +
                         '</div>' +
                         '<div style="font-size:0.8rem; line-height:1.6;">' +
                             '<div class="flex-between"><span>Status:</span> <strong style="color:#096dd9;">● Monitoring Test</strong></div>' +
-                            '<div class="flex-between"><span>Camera Observations:</span> <strong>4 Captured</strong></div>' +
-                            '<div class="flex-between"><span>Sensor Events:</span> <strong>6 Logged</strong></div>' +
+                            '<div class="flex-between"><span>Camera Observations:</span> <strong>6 Captured</strong></div>' +
+                            '<div class="flex-between"><span>Sensor Events:</span> <strong>42 Logged</strong></div>' +
                             '<div class="flex-between"><span>Potential Violations:</span> <strong style="color:#d46b08;">1 Flagged</strong></div>' +
                             '<div class="flex-between" style="margin-top:0.4rem; border-top:1px solid var(--border); padding-top:0.4rem;">' +
                                 '<span>Telemetry Score:</span> <strong style="color:#148f60; font-size:0.95rem;">92 / 100 (PASSED)</strong>' +
@@ -6936,7 +7033,7 @@ function renderTestCentrePage() {
                     '</div>' +
                 '</div>' +
 
-                '<!-- COMPLETE DRIVING TEST BUTTON (Requirement 11) -->' +
+                '<!-- COMPLETE DRIVING TEST BUTTON -->' +
                 '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.9rem; font-size:1rem;" onclick="testCentreCompleteTest()"><i class="fa-solid fa-flag-checkered"></i> COMPLETE DRIVING TEST</button>' +
             '</div>' +
         '</div>';
@@ -6951,13 +7048,13 @@ function renderTestCentrePage() {
                 '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); margin-bottom:0.3rem; text-align:center;">Driving Test Completed</h2>' +
                 '<p style="font-size:0.84rem; color:var(--text-muted); text-align:center; margin-bottom:1.5rem;">Application ID: <strong>' + app.id + '</strong> &nbsp;•&nbsp; Candidate: <strong>' + app.name + '</strong></p>' +
 
-                '<!-- Captured Evidence Summary Cards (Requirement 11, 12) -->' +
+                '<!-- Captured Evidence Summary Cards -->' +
                 '<div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
                     '<h4 style="font-size:0.9rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.35rem;">Captured Test Evidence & Telemetry</h4>' +
                     '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Driving Test Result:</span><strong style="color:#148f60;">✓ Test Completed</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Original Camera Video:</span><strong style="color:#148f60;">✓ Captured (APP206500_TrackTest_Video.mp4)</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Vehicle Sensor Log:</span><strong style="color:#148f60;">✓ Captured (TelemetryStream.json)</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">AI Analysis Report:</span><strong style="color:#148f60;">✓ Generated (RTO_AI_Report_APP206500.pdf)</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Original Camera Video:</span><strong style="color:#148f60;">✓ Captured (' + videoName + ')</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Vehicle Sensor Log:</span><strong style="color:#148f60;">✓ Captured (' + app.id + '_Telemetry)</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">AI Analysis Report:</span><strong style="color:#148f60;">✓ Generated (' + app.id + '_AI_Report.pdf)</strong></div>' +
                 '</div>' +
 
                 '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem;" onclick="testCentreGenerateAiReport()"><i class="fa-solid fa-lock"></i> LOCK EVIDENCE & PREVIEW PACKAGE</button>' +
@@ -6967,19 +7064,19 @@ function renderTestCentrePage() {
 
     if (state.step === 'ai_generated' || state.step === 'locked') {
         var isLocked = state.step === 'locked';
-        var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(window.location.origin + window.location.pathname + '#verify-evidence?ev=EV-206500');
+        var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(window.location.origin + window.location.pathname + '#verify-evidence?ev=EV-' + app.id.replace('APP-', ''));
 
         return '<div class="animate-in" style="max-width:800px; margin:2rem auto;">' +
             '<div class="card" style="padding:2.25rem 2rem;">' +
                 '<div class="flex-between" style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">' +
                     '<div>' +
                         '<h3 style="font-size:1.2rem; font-weight:700; color:var(--text-main); margin:0;">EVIDENCE PACKAGE & INDEPENDENT ALLOCATION</h3>' +
-                        '<p style="font-size:0.78rem; color:var(--text-muted); margin:0.2rem 0 0 0;">DriveSetu Secured Evidence Package EV-206500</p>' +
+                        '<p style="font-size:0.78rem; color:var(--text-muted); margin:0.2rem 0 0 0;">DriveSetu Secured Evidence Package EV-' + app.id.replace('APP-', '') + '</p>' +
                     '</div>' +
                     '<span class="badge badge-approved" style="font-size:0.8rem;"><i class="fa-solid fa-lock"></i> Evidence Locked</span>' +
                 '</div>' +
 
-                '<!-- Locked Evidence Package Block (Requirement 12, 13) -->' +
+                '<!-- Locked Evidence Package Block -->' +
                 '<div style="background:#e8f7f1; border:1px solid #c2ead8; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
                     '<div style="font-weight:700; font-size:0.95rem; color:#148f60; margin-bottom:0.5rem;">' +
                         '<i class="fa-solid fa-shield-halved"></i> 🔒 EVIDENCE PACKAGE LOCKED (READ-ONLY)' +
@@ -6987,14 +7084,14 @@ function renderTestCentrePage() {
                     '<div style="display:grid; grid-template-columns: 1fr 140px; gap:1rem; align-items:center;">' +
                         '<div style="font-size:0.82rem; color:var(--text-main); line-height:1.6;">' +
                             '<div>Application ID: <strong>' + app.id + '</strong></div>' +
-                            '<div>Evidence ID: <strong>EV-206500</strong></div>' +
-                            '<div>Original Video: <strong style="color:#148f60;">READ ONLY (APP206500_TrackTest_Video.mp4)</strong></div>' +
-                            '<div>Sensor Data: <strong style="color:#148f60;">READ ONLY (TelemetryStream.json)</strong></div>' +
-                            '<div>AI Report: <strong style="color:#148f60;">READ ONLY (RTO_AI_Report_APP206500.pdf)</strong></div>' +
+                            '<div>Evidence ID: <strong>EV-' + app.id.replace('APP-', '') + '</strong></div>' +
+                            '<div>Original Video: <strong style="color:#148f60;">READ ONLY (' + videoName + ')</strong></div>' +
+                            '<div>Sensor Data: <strong style="color:#148f60;">READ ONLY (' + app.id + '_Telemetry)</strong></div>' +
+                            '<div>AI Report: <strong style="color:#148f60;">READ ONLY (' + app.id + '_AI_Report.pdf)</strong></div>' +
                             '<div style="word-break:break-all; margin-top:0.3rem;">Integrity SHA-256 Hash: <br><code style="font-size:0.72rem; background:#fff; padding:2px 6px; border-radius:4px; color:#148f60;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code></div>' +
                         '</div>' +
                         '<div style="text-align:center;">' +
-                            '<a href="#verify-evidence?ev=EV-206500"><img src="' + qrUrl + '" style="width:110px; height:110px; border-radius:6px; border:1px solid #c2ead8;" title="Scan QR Code to Verify Evidence Package"></a>' +
+                            '<a href="#verify-evidence?ev=EV-' + app.id.replace('APP-', '') + '"><img src="' + qrUrl + '" style="width:110px; height:110px; border-radius:6px; border:1px solid #c2ead8;" title="Scan QR Code to Verify Evidence Package"></a>' +
                             '<div style="font-size:0.68rem; color:var(--text-muted); margin-top:0.2rem;">Verification QR</div>' +
                         '</div>' +
                     '</div>' +
