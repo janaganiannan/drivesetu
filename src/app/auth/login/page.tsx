@@ -17,10 +17,16 @@ export default function LoginPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In our mock, name is extracted from email or just 'User'
-    const name = email.split("@")[0];
-    login(email, name);
-    router.push("/account");
+    // In our mock, name is extracted from email/phone or just 'User'
+    const name = email.includes("@") ? email.split("@")[0] : "User";
+    login(email, name, password);
+    
+    // Redirect logic handled here for responsiveness
+    if (email === "8125531017" && password === "annan@123") {
+      router.push("/admin");
+    } else {
+      router.push("/account");
+    }
   };
 
   return (
@@ -40,15 +46,15 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-2">Email Address</label>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-2">Email or Phone Number</label>
               <div className="relative">
                 <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-300" size={20} />
                 <input 
                   required
-                  type="email" 
+                  type="text" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@email.com" 
+                  placeholder="Email or 81255XXXXX" 
                   className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-14 pr-6 font-bold text-dark-navy focus:ring-2 focus:ring-brand-blue/10 outline-none"
                 />
               </div>
@@ -86,10 +92,6 @@ export default function LoginPage() {
               Don&apos;t have an account?{" "}
               <Link href="/auth/signup" className="text-brand-blue font-black hover:underline underline-offset-4">Sign Up Now</Link>
             </p>
-          </div>
-          
-          <div className="mt-8 p-4 bg-blue-50/50 rounded-2xl text-[10px] font-bold text-blue-400 uppercase tracking-widest text-center">
-            Tip: Use &quot;admin&quot; in email for Admin Access
           </div>
         </motion.div>
       </section>

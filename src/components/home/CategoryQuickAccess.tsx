@@ -7,14 +7,6 @@ import { ArrowUpRight } from "lucide-react";
 
 const categories = [
   {
-    id: 1,
-    name: "Premium Clothing",
-    slug: "clothing",
-    image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=800",
-    color: "bg-blue-50",
-    count: "100+ items"
-  },
-  {
     id: 2,
     name: "Luxury Watches",
     slug: "watches",

@@ -17,7 +17,8 @@ type CartAction =
   | { type: "ADD_TO_CART"; product: Product }
   | { type: "REMOVE_FROM_CART"; productId: string }
   | { type: "UPDATE_QUANTITY"; productId: string; quantity: number }
-  | { type: "CLEAR_CART" };
+  | { type: "CLEAR_CART" }
+  | { type: "HYDRATE"; state: CartState };
 
 const CartContext = createContext<{
   state: CartState;
@@ -78,6 +79,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
     case "CLEAR_CART":
       return { items: [], totalItems: 0, totalPrice: 0 };
 
+    case "HYDRATE":
+      return action.state;
+
     default:
       return state;
   }
@@ -94,13 +98,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const savedCart = localStorage.getItem("trendify_cart");
     if (savedCart) {
-      const parsed = JSON.parse(savedCart);
-      parsed.items.forEach((item: any) => {
-        // Use single ADDs or a batch update if needed, but for simplicity:
-        // (This is a mock, ideally we'd have a SET_STATE action)
-      });
-      // Better:
-      // dispatch({ type: 'HYDRATE', state: parsed })
+      try {
+        const parsed = JSON.parse(savedCart);
+        dispatch({ type: "HYDRATE", state: parsed });
+      } catch (e) {
+        console.error("Failed to parse cart", e);
+      }
     }
   }, []);
 

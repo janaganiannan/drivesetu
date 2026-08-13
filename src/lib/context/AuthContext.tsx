@@ -6,12 +6,13 @@ interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   isAdmin?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, name: string) => void;
+  login: (emailOrPhone: string, name: string, password?: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -29,13 +30,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = (email: string, name: string) => {
-    // Simple mock logic: if email contains 'admin', make them an admin
+  const login = (emailOrPhone: string, name: string, password?: string) => {
+    // Specific Owner Check
+    const isOwner = (emailOrPhone === "8125531017" || emailOrPhone === "owner@trendify.com") && password === "annan@123";
+    
     const newUser = {
       id: "u-" + Math.random().toString(36).substr(2, 6),
-      name,
-      email,
-      isAdmin: email.includes("admin"),
+      name: isOwner ? "Store Owner" : name,
+      email: emailOrPhone.includes("@") ? emailOrPhone : "",
+      phone: !emailOrPhone.includes("@") ? emailOrPhone : "",
+      isAdmin: isOwner,
     };
     setUser(newUser);
     localStorage.setItem("trendify_user", JSON.stringify(newUser));

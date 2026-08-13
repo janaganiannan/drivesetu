@@ -41,8 +41,8 @@ const Footer = () => {
               <li><Link href="/track-order" className="hover:text-brand-blue transition-colors">Track Your Order</Link></li>
               <li><Link href="/shipping" className="hover:text-brand-blue transition-colors">Shipping Policy</Link></li>
               <li><Link href="/returns" className="hover:text-brand-blue transition-colors">Returns & Refunds</Link></li>
-              <li><Link href="/faq" className="hover:text-brand-blue transition-colors">FAQs</Link></li>
-              <li><Link href="/contact" className="hover:text-brand-blue transition-colors">Contact Us</Link></li>
+              <li><Link href="/help" className="hover:text-brand-blue transition-colors">FAQs</Link></li>
+              <li><Link href="/help" className="hover:text-brand-blue transition-colors">Contact Us</Link></li>
             </ul>
           </div>
 

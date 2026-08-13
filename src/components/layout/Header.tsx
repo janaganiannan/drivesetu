@@ -91,7 +91,6 @@ const Header = () => {
       {/* Sub-navbar (Categories) - Desktop */}
       <nav className="hidden md:block bg-white border-t border-gray-50 overflow-x-auto shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-12 flex items-center justify-center gap-8 whitespace-nowrap">
-          <Link href="/clothing" className="text-sm font-semibold text-dark-navy/70 hover:text-brand-blue transition-colors py-3 border-b-2 border-transparent hover:border-brand-blue translation-all">Clothing</Link>
           <Link href="/watches" className="text-sm font-semibold text-dark-navy/70 hover:text-brand-blue transition-colors py-3 border-b-2 border-transparent hover:border-brand-blue translation-all">Watches</Link>
           <Link href="/electronics" className="text-sm font-semibold text-dark-navy/70 hover:text-brand-blue transition-colors py-3 border-b-2 border-transparent hover:border-brand-blue translation-all">Electronics</Link>
           <Link href="/deals" className="text-sm font-semibold text-accent-orange hover:text-accent-orange/80 transition-colors py-3 border-b-2 border-transparent hover:border-accent-orange translation-all">🔥 Flash Deals</Link>
@@ -119,7 +118,6 @@ const Header = () => {
 
             <div className="space-y-6">
               <Link onClick={() => setIsMenuOpen(false)} href="/" className="block text-xl font-bold text-dark-navy border-b border-gray-100 pb-2">Home</Link>
-              <Link onClick={() => setIsMenuOpen(false)} href="/clothing" className="block text-xl font-bold text-dark-navy border-b border-gray-100 pb-2">Clothing</Link>
               <Link onClick={() => setIsMenuOpen(false)} href="/watches" className="block text-xl font-bold text-dark-navy border-b border-gray-100 pb-2">Watches</Link>
               <Link onClick={() => setIsMenuOpen(false)} href="/electronics" className="block text-xl font-bold text-dark-navy border-b border-gray-100 pb-2">Electronics</Link>
               <Link onClick={() => setIsMenuOpen(false)} href="/deals" className="block text-xl font-bold text-accent-orange border-b border-gray-100 pb-2">Flash Deals</Link>

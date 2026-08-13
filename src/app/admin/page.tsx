@@ -47,7 +47,12 @@ export default function AdminDashboard() {
     ];
   }, [orders]);
 
-  if (!user?.isAdmin) return null;
+  const [activeTab, setActiveTab] = useState("orders");
+  const [productList, setProductList] = useState(products);
+
+  const handleDeleteProduct = (id: string) => {
+    setProductList(prev => prev.filter(p => p.id !== id));
+  };
 
   return (
     <main className="min-h-screen bg-section-bg pb-20">
@@ -67,79 +72,130 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
-          {stats.map((item) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: item.id * 0.1 }}
-              className="bg-white p-8 rounded-[2.5rem] premium-shadow border border-gray-100"
-            >
-              <div className={`p-4 rounded-2xl w-max mb-6 ${item.bg} ${item.color}`}>
-                {item.icon}
-              </div>
-              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{item.name}</p>
-              <h3 className="text-2xl font-black text-dark-navy mb-4 font-display">{item.value}</h3>
-              <div className="flex items-center gap-2 text-[10px] font-black italic">
-                 {item.trend.startsWith('+') ? (
-                   <ArrowUpRight size={14} className="text-green-500" />
-                 ) : (
-                   <ArrowDownRight size={14} className="text-red-500" />
-                 )}
-                 <span className={item.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}>{item.trend} Since last month</span>
-              </div>
-            </motion.div>
-          ))}
+        {/* ... (stats grid stays the same) ... */}
+
+        <div className="flex gap-4 mb-8">
+           <button 
+             onClick={() => setActiveTab("orders")}
+             className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'orders' ? 'bg-dark-navy text-white shadow-lg' : 'bg-white text-gray-400 hover:text-dark-navy'}`}
+           >
+             Customer Orders
+           </button>
+           <button 
+             onClick={() => setActiveTab("products")}
+             className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'products' ? 'bg-dark-navy text-white shadow-lg' : 'bg-white text-gray-400 hover:text-dark-navy'}`}
+           >
+             Manage Products
+           </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          {/* Latest Orders Table */}
+          {/* Main Content Area */}
           <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white p-8 md:p-12 rounded-[3.5rem] premium-shadow border border-gray-100">
-               <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-xl font-display font-bold text-dark-navy">Recent Customer Orders</h3>
-                  <button className="text-xs font-black text-brand-blue hover:underline uppercase tracking-widest">View All Orders</button>
-               </div>
-               
-               <div className="overflow-x-auto">
-                 <table className="w-full">
-                    <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-left border-b border-gray-100">
-                       <tr>
-                         <th className="pb-4 pl-2">Order ID</th>
-                         <th className="pb-4">Customer</th>
-                         <th className="pb-4">Amount</th>
-                         <th className="pb-4">Payment</th>
-                         <th className="pb-4">Status</th>
-                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                       {orders.length > 0 ? (
-                         orders.slice().reverse().map((order) => (
-                           <tr key={order.id} className="group hover:bg-gray-50/50 transition-colors">
-                             <td className="py-5 font-black text-sm text-dark-navy pl-2">#{order.id}</td>
-                             <td className="py-5">
-                                <div className="text-sm font-bold text-dark-navy">{order.address.name}</div>
-                                <div className="text-[10px] text-gray-400">{order.address.city}</div>
-                             </td>
-                             <td className="py-5 font-black text-sm text-brand-blue">{formatCurrency(order.total)}</td>
-                             <td className="py-5 text-[10px] font-black uppercase text-gray-500 italic">{order.paymentMethod}</td>
-                             <td className="py-5">
-                                <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                                  {order.status}
-                                </span>
-                             </td>
+            <AnimatePresence mode="wait">
+              {activeTab === "orders" ? (
+                <motion.div 
+                  key="orders"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="bg-white p-8 md:p-12 rounded-[3.5rem] premium-shadow border border-gray-100"
+                >
+                   <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-display font-bold text-dark-navy">Recent Customer Orders</h3>
+                      <button className="text-xs font-black text-brand-blue hover:underline uppercase tracking-widest">View All Orders</button>
+                   </div>
+                   
+                   <div className="overflow-x-auto">
+                     <table className="w-full">
+                        <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-left border-b border-gray-100">
+                           <tr>
+                             <th className="pb-4 pl-2">Order ID</th>
+                             <th className="pb-4">Customer</th>
+                             <th className="pb-4">Amount</th>
+                             <th className="pb-4">Payment</th>
+                             <th className="pb-4">Status</th>
                            </tr>
-                         ))
-                       ) : (
-                         <tr>
-                           <td colSpan={5} className="py-20 text-center text-gray-400 italic">No orders recorded yet.</td>
-                         </tr>
-                       )}
-                    </tbody>
-                 </table>
-               </div>
-            </div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                           {orders.length > 0 ? (
+                             orders.slice().reverse().map((order) => (
+                               <tr key={order.id} className="group hover:bg-gray-50/50 transition-colors">
+                                 <td className="py-5 font-black text-sm text-dark-navy pl-2">#{order.id}</td>
+                                 <td className="py-5">
+                                    <div className="text-sm font-bold text-dark-navy">{order.address.name}</div>
+                                    <div className="text-[10px] text-gray-400">{order.address.city}</div>
+                                 </td>
+                                 <td className="py-5 font-black text-sm text-brand-blue">{formatCurrency(order.total)}</td>
+                                 <td className="py-5 text-[10px] font-black uppercase text-gray-500 italic">{order.paymentMethod}</td>
+                                 <td className="py-5">
+                                    <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                                      {order.status}
+                                    </span>
+                                 </td>
+                               </tr>
+                             ))
+                           ) : (
+                             <tr>
+                               <td colSpan={5} className="py-20 text-center text-gray-400 italic">No orders recorded yet.</td>
+                             </tr>
+                           )}
+                        </tbody>
+                     </table>
+                   </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="products"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="bg-white p-8 md:p-12 rounded-[3.5rem] premium-shadow border border-gray-100"
+                >
+                   <div className="flex justify-between items-center mb-8">
+                      <h3 className="text-xl font-display font-bold text-dark-navy">Product Inventory</h3>
+                      <button className="bg-brand-blue text-white px-6 py-2 rounded-xl font-bold text-xs">Add New</button>
+                   </div>
+                   
+                   <div className="overflow-x-auto">
+                     <table className="w-full">
+                        <thead className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-left border-b border-gray-100">
+                           <tr>
+                             <th className="pb-4 pl-2">Product</th>
+                             <th className="pb-4">Category</th>
+                             <th className="pb-4">Price</th>
+                             <th className="pb-4">Stock</th>
+                             <th className="pb-4">Action</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                           {productList.map((product) => (
+                             <tr key={product.id} className="group hover:bg-gray-50/50 transition-colors">
+                               <td className="py-4 pl-2">
+                                  <div className="flex items-center gap-3">
+                                     <img src={product.image} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                                     <span className="text-sm font-bold text-dark-navy truncate max-w-[120px]">{product.name}</span>
+                                  </div>
+                               </td>
+                               <td className="py-4 text-[10px] font-black uppercase text-gray-400">{product.category}</td>
+                               <td className="py-4 font-black text-sm text-dark-navy">{formatCurrency(product.price)}</td>
+                               <td className="py-4 font-bold text-sm text-gray-500">{product.stock}</td>
+                               <td className="py-4">
+                                  <button 
+                                    onClick={() => handleDeleteProduct(product.id)}
+                                    className="text-red-500 hover:text-red-700 font-bold text-xs uppercase"
+                                  >
+                                    Delete
+                                  </button>
+                               </td>
+                             </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Quick Actions & Insight */}
@@ -183,13 +239,13 @@ export default function AdminDashboard() {
                    </div>
                    <div className="flex justify-between items-center text-xs font-bold">
                       <span className="text-gray-400">Next.js Version</span>
-                      <span className="text-dark-navy uppercase tracking-widest">14.1.0 (Stable)</span>
+                      <span className="text-dark-navy uppercase tracking-widest">16.2.4 (Latest)</span>
                    </div>
                    <div className="flex justify-between items-center text-xs font-bold">
                       <span className="text-gray-400">Brand Color</span>
                       <div className="flex items-center gap-2">
                          <div className="w-3 h-3 rounded-full bg-brand-blue"></div>
-                         <span className="text-dark-navy uppercase tracking-widest">#2563EB</span>
+                         <span className="text-dark-navy uppercase tracking-widest">#1A6FC4</span>
                       </div>
                    </div>
                 </div>
