@@ -1686,25 +1686,25 @@ function render() {
         var loginIcon = isCitizenLogin ? 'ph-user' : 'ph-shield-check';
         var loginTarget = isCitizenLogin ? 'citizen' : 'rto';
         var loginColor = isCitizenLogin ? 'var(--primary)' : 'var(--primary-dark)';
-        var defaultEmail = isCitizenLogin ? 'citizen@drivesetu.com' : 'operator.tg03@drivesetu.com';
-        var defaultPass = isCitizenLogin ? 'citizen123' : 'operator123';
+        var defaultEmail = isCitizenLogin ? '' : 'admin@drivesetu.com';
+        var defaultPass = isCitizenLogin ? '' : 'admin123';
 
         var quickRoleSwitcherHTML = '';
         if (isRTOLogin) {
             quickRoleSwitcherHTML = '<div style="margin-top:1.25rem; border-top:1px solid var(--border); padding-top:1rem;">' +
                 '<p style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.5rem;"><i class="fa-solid fa-bolt" style="color:var(--primary);"></i> Quick Prototype Role Switcher</p>' +
                 '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'operator.tg03@drivesetu.com\', \'operator123\')">' +
-                        '<i class="fa-solid fa-video" style="color:var(--primary);"></i> TG-03 Test Operator' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'officer17.tg08@drivesetu.com\', \'officer123\')">' +
-                        '<i class="fa-solid fa-user-shield" style="color:#096dd9;"></i> Officer 17 (TG-08)' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'officer31.tg12@drivesetu.com\', \'officer123\')">' +
-                        '<i class="fa-solid fa-user-shield" style="color:#d46b08;"></i> Officer 31 (TG-12)' +
-                    '</button>' +
                     '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'admin@drivesetu.com\', \'admin123\')">' +
                         '<i class="fa-solid fa-shield-halved" style="color:#722ed1;"></i> System Admin' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'annan@drivesetu.com\', \'annan123\')">' +
+                        '<i class="fa-solid fa-user-shield" style="color:#096dd9;"></i> Officer Annan' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'rahil@drivesetu.com\', \'rahil123\')">' +
+                        '<i class="fa-solid fa-user-shield" style="color:#d46b08;"></i> Officer Rahil' +
+                    '</button>' +
+                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'srivathsav@drivesetu.com\', \'srivathsav123\')">' +
+                        '<i class="fa-solid fa-user-shield" style="color:#389e0d;"></i> Officer Srivathsav' +
                     '</button>' +
                 '</div>' +
             '</div>';
