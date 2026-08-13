@@ -772,6 +772,45 @@ function getStoredApplications() {
         });
         modified = true;
     }
+
+    // Ensure Siddu has an Approved Learner's Licence issued >30 days ago (10 May 2026)
+    var hasSidduLL = false;
+    for (var sd = 0; sd < apps.length; sd++) {
+        var _appSd = apps[sd];
+        if (_appSd.type === "Learner's Licence" && ((_appSd.citizenId && _appSd.citizenId.toLowerCase().includes('siddu')) || (_appSd.name && _appSd.name.toLowerCase().includes('siddu')) || _appSd.id === 'LL-SIDDU-001')) {
+            hasSidduLL = true;
+            _appSd.status = 'Approved';
+            _appSd.date = '10 May 2026';
+            if (!_appSd.serviceDetails) _appSd.serviceDetails = {};
+            _appSd.serviceDetails.issueDate = '10 May 2026';
+            _appSd.serviceDetails.validity = '10 May 2026 to 10 Nov 2026';
+            _appSd.serviceDetails.llNumber = _appSd.id || 'LL-SIDDU-001';
+            modified = true;
+        }
+    }
+
+    if (!hasSidduLL) {
+        apps.unshift({
+            id: 'LL-SIDDU-001',
+            name: 'Siddu',
+            type: "Learner's Licence",
+            status: 'Approved',
+            date: '10 May 2026',
+            citizenId: 'siddu@gmail.com',
+            vehicleClasses: ['MCWG', 'LMV'],
+            serviceDetails: {
+                rtoCode: 'TG-05',
+                rtoOfficeName: 'RTA Secunderabad / Hyderabad North',
+                rtoAddress: 'Secunderabad RTO, Hyderabad',
+                vehicleClasses: ['MCWG', 'LMV'],
+                vehicleClass: 'MCWG, LMV',
+                llNumber: 'LL-SIDDU-001',
+                issueDate: '10 May 2026',
+                validity: '10 May 2026 to 10 Nov 2026'
+            }
+        });
+        modified = true;
+    }
     if (modified) {
         saveStoredApplications(apps);
     }
@@ -4814,13 +4853,15 @@ function checkCitizenDLEligibility(session, requestedClasses) {
     var matchedLL = null;
     var isDemoAccount = (session.email === 'citizen@drivesetu.com' || session.email === 'demo@drivesetu.com');
     var isSufyanSession = (session.email && session.email.toLowerCase().includes('sufyan')) || (session.name && session.name.toLowerCase().includes('sufyan'));
+    var isSidduSession = (session.email && session.email.toLowerCase().includes('siddu')) || (session.name && session.name.toLowerCase().includes('siddu'));
 
     for (var j = 0; j < apps.length; j++) {
         var llApp = apps[j];
         if (llApp.type === "Learner's Licence" && (llApp.status === 'Approved' || llApp.status === 'Issued' || llApp.status === 'Valid' || llApp.status === 'Submitted' || llApp.status === 'Pending')) {
             var isOwner = (llApp.citizenId === session.email || llApp.citizenId === session.appId || (session.name && llApp.name === session.name));
             var isSufyanLL = isSufyanSession && (llApp.id === 'LL-SUFYAN-001' || (llApp.citizenId && llApp.citizenId.toLowerCase().includes('sufyan')));
-            if (isOwner || isSufyanLL || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
+            var isSidduLL = isSidduSession && (llApp.id === 'LL-SIDDU-001' || (llApp.citizenId && llApp.citizenId.toLowerCase().includes('siddu')));
+            if (isOwner || isSufyanLL || isSidduLL || (isDemoAccount && llApp.id === 'LL-DEMO-001')) {
                 matchedLL = llApp;
                 break;
             }
