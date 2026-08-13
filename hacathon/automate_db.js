@@ -13,10 +13,11 @@ const supabase = createClient(SUPABASE_URL, SECRET_KEY, {
     auth: { autoRefreshToken: false, persistSession: false }
 });
 
-const ADMIN_EMAILS = [
-    'annan@drivesetu.com',
-    'srivathsav@drivesetu.com',
-    'rahil@drivesetu.com'
+const ACCOUNTS_CONFIG = [
+    { email: 'admin@drivesetu.com', password: 'admin123', role: 'admin' },
+    { email: 'annan@drivesetu.com', password: 'annan123', role: 'user' },
+    { email: 'srivathsav@drivesetu.com', password: 'srivathsav123', role: 'user' },
+    { email: 'rahil@drivesetu.com', password: 'rahil123', role: 'user' }
 ];
 
 async function automateDatabase() {
@@ -29,41 +30,40 @@ async function automateDatabase() {
     
     const existingEmails = new Set(usersData.users.map(u => u.email.toLowerCase()));
     console.log('Existing users count:', usersData.users.length);
-    console.log('Existing emails:', Array.from(existingEmails));
 
-    console.log('\n--- 2. Ensuring Admin Accounts Exist ---');
-    for (const email of ADMIN_EMAILS) {
+    console.log('\n--- 2. Ensuring Admin & Officer Accounts Exist ---');
+    for (const acc of ACCOUNTS_CONFIG) {
         let userId;
+        const email = acc.email;
         if (!existingEmails.has(email.toLowerCase())) {
-            console.log(`Creating admin user: ${email}...`);
+            console.log(`Creating user: ${email}...`);
             const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
                 email: email,
-                password: 'admin123',
+                password: acc.password,
                 email_confirm: true,
                 user_metadata: { full_name: email.split('@')[0].toUpperCase() }
             });
 
             if (createErr) {
-                console.error(`Failed to create admin user ${email}:`, createErr.message);
+                console.error(`Failed to create user ${email}:`, createErr.message);
                 continue;
             }
             userId = newUser.user.id;
-            console.log(`Created admin account ${email} (ID: ${userId})`);
+            console.log(`Created account ${email} (ID: ${userId})`);
         } else {
             const user = usersData.users.find(u => u.email.toLowerCase() === email.toLowerCase());
             userId = user.id;
-            console.log(`Updating password to admin123 for existing admin ${email} (ID: ${userId})...`);
-            await supabase.auth.admin.updateUserById(userId, { password: 'admin123' });
+            console.log(`Updating password to '${acc.password}' for user ${email}...`);
+            await supabase.auth.admin.updateUserById(userId, { password: acc.password });
         }
 
-        // Upsert into profiles table with correct roles
-        const targetRole = (email.toLowerCase() === 'annan@drivesetu.com') ? 'admin' : 'user';
+        // Upsert into profiles table
         const { error: profileErr } = await supabase
             .from('profiles')
             .upsert({
                 id: userId,
                 email: email,
-                role: targetRole,
+                role: acc.role,
                 full_name: email.split('@')[0].toUpperCase(),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' });
@@ -71,7 +71,7 @@ async function automateDatabase() {
         if (profileErr) {
             console.error(`Error updating profile for ${email}:`, profileErr.message);
         } else {
-            console.log(`Successfully verified admin profile in database for ${email}`);
+            console.log(`Successfully verified profile in database for ${email} (${acc.role})`);
         }
     }
 

@@ -71,17 +71,17 @@ var rtoAccounts = [
     { email: 'operator.tg08@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-08 Test Centre Operator', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'OP8' },
     { email: 'operator.tg12@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-12 Test Centre Operator', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'OP12' },
 
-    // RTO Reviewing Officers (Eligible Pool across different RTOs)
-    { email: 'srivathsav@drivesetu.com', password: 'admin123', role: 'REVIEWING_OFFICER', officerId: 'OFF-SRIVATHSAV', name: 'Officer Srivathsav', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'SRI' },
-    { email: 'rahil@drivesetu.com', password: 'admin123', role: 'REVIEWING_OFFICER', officerId: 'OFF-RAHIL', name: 'Officer Rahil', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'RAH' },
+    // RTO Reviewing Officers (Annan, Rahil, Srivathsav)
+    { email: 'annan@drivesetu.com', password: 'annan123', role: 'REVIEWING_OFFICER', officerId: 'OFF-ANNAN', name: 'Officer Annan', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'ANN' },
+    { email: 'rahil@drivesetu.com', password: 'rahil123', role: 'REVIEWING_OFFICER', officerId: 'OFF-RAHIL', name: 'Officer Rahil', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'RAH' },
+    { email: 'srivathsav@drivesetu.com', password: 'srivathsav123', role: 'REVIEWING_OFFICER', officerId: 'OFF-SRIVATHSAV', name: 'Officer Srivathsav', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'SRI' },
     { email: 'officer01.tg03@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-01', name: 'Officer 01 (K. Rao)', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'O01' },
     { email: 'officer09.tg05@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-09', name: 'Officer 09 (S. Verma)', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'O09' },
     { email: 'officer17.tg08@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-17', name: 'Officer 17 (V. Reddy)', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'O17' },
     { email: 'officer31.tg12@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-31', name: 'Officer 31 (M. Sharma)', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'O31' },
 
-    // Sole System Administrator
-    { email: 'annan@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'Annan (System Administrator)', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ANN' },
-    { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'RTO System Authority', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
+    // System / Administrative Authority
+    { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'System Administrator', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
 ];
 
 // Independent Cross-RTO Officers Allocation Engine
@@ -1802,19 +1802,30 @@ function render() {
                 }
 
                 // Designated RTO accounts check
-                if (!matchedRto && password === 'admin123') {
+                if (!matchedRto) {
                     var inputEmail = email.toLowerCase();
-                    if (inputEmail === 'annan@drivesetu.com') {
+                    if (inputEmail === 'admin@drivesetu.com' && password === 'admin123') {
+                        matchedRto = {
+                            email: 'admin@drivesetu.com',
+                            password: password,
+                            role: 'ADMIN',
+                            name: 'System Administrator',
+                            rtoCode: 'ALL',
+                            rtoName: 'Telangana Transport Department',
+                            initials: 'ADM'
+                        };
+                    } else if (inputEmail === 'annan@drivesetu.com' && password === 'annan123') {
                         matchedRto = {
                             email: 'annan@drivesetu.com',
                             password: password,
-                            role: 'ADMIN',
-                            name: 'Annan (System Administrator)',
-                            rtoCode: 'ALL',
-                            rtoName: 'Telangana Transport Department',
+                            role: 'REVIEWING_OFFICER',
+                            officerId: 'OFF-ANNAN',
+                            name: 'Officer Annan',
+                            rtoCode: 'TG-03',
+                            rtoName: 'RTA Medchal / Hyderabad West',
                             initials: 'ANN'
                         };
-                    } else if (inputEmail === 'rahil@drivesetu.com') {
+                    } else if (inputEmail === 'rahil@drivesetu.com' && password === 'rahil123') {
                         matchedRto = {
                             email: 'rahil@drivesetu.com',
                             password: password,
@@ -1825,7 +1836,7 @@ function render() {
                             rtoName: 'RTA Secunderabad / Hyderabad North',
                             initials: 'RAH'
                         };
-                    } else if (inputEmail === 'srivathsav@drivesetu.com') {
+                    } else if (inputEmail === 'srivathsav@drivesetu.com' && password === 'srivathsav123') {
                         matchedRto = {
                             email: 'srivathsav@drivesetu.com',
                             password: password,
@@ -1847,7 +1858,7 @@ function render() {
                         window.location.hash = 'rto';
                     }
                 } else {
-                    alert('Invalid Admin / RTO credentials!\n\nAuthorized Admin Accounts:\n  annan@drivesetu.com / admin123\n  srivathsav@drivesetu.com / admin123\n  rahil@drivesetu.com / admin123');
+                    alert('Invalid Admin / RTO credentials!\n\nSystem Administrator:\n  admin@drivesetu.com / admin123\n\nRTO Reviewing Officers:\n  annan@drivesetu.com / annan123\n  rahil@drivesetu.com / rahil123\n  srivathsav@drivesetu.com / srivathsav123');
                 }
             }
         };
@@ -6018,10 +6029,11 @@ function submitServiceForm(licenceType) {
         source: 'Digital Application (DriveSetu Portal)'
     };
 
-    // Random allotment between Officer Srivathsav and Officer Rahil
+    // Random allotment among the 3 RTO Officers: Officer Annan, Officer Rahil, and Officer Srivathsav
     var officerPool = [
-        { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' },
-        { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' }
+        { officerId: 'OFF-ANNAN', email: 'annan@drivesetu.com', name: 'Officer Annan', rtoCode: 'TG-03' },
+        { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' },
+        { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' }
     ];
     var assignedOfficerObj = officerPool[Math.floor(Math.random() * officerPool.length)];
 
