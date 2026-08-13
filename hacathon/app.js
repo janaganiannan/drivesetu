@@ -740,18 +740,26 @@ function getStoredApplications() {
         });
         modified = true;
     }
-    // Ensure Sufyan has an Approved Learner's Licence issued >30 days ago (10 May 2026)
+    // Ensure ALL of Sufyan's applications (e.g. APP-801439, LL-SUFYAN-001) are marked as 1 Month Old (14 Jul 2026) with Driving Test Date as Current Respective Day
+    var todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    var oneMonthAgoStr = '14 Jul 2026';
     var hasSufyanLL = false;
+
     for (var s = 0; s < apps.length; s++) {
         var _appS = apps[s];
-        if (_appS.type === "Learner's Licence" && ((_appS.citizenId && _appS.citizenId.toLowerCase().includes('sufyan')) || (_appS.name && _appS.name.toLowerCase().includes('sufyan')) || _appS.id === 'LL-SUFYAN-001')) {
+        var isSufyanMatch = ((_appS.citizenId && _appS.citizenId.toLowerCase().includes('sufyan')) || (_appS.name && _appS.name.toLowerCase().includes('sufyan')) || _appS.id === 'LL-SUFYAN-001' || _appS.id === 'APP-801439');
+        if (isSufyanMatch) {
             hasSufyanLL = true;
+            _appS.type = "Learner's Licence";
             _appS.status = 'Approved';
-            _appS.date = '10 May 2026';
+            _appS.date = oneMonthAgoStr;
             if (!_appS.serviceDetails) _appS.serviceDetails = {};
-            _appS.serviceDetails.issueDate = '10 May 2026';
-            _appS.serviceDetails.validity = '10 May 2026 to 10 Nov 2026';
+            _appS.serviceDetails.issueDate = oneMonthAgoStr;
+            _appS.serviceDetails.validity = oneMonthAgoStr + ' to 14 Jan 2027';
             _appS.serviceDetails.llNumber = _appS.id || 'LL-SUFYAN-001';
+            _appS.serviceDetails.allocatedTestDate = todayFormatted;
+            _appS.serviceDetails.testDate = todayFormatted;
+            _appS.serviceDetails.appointmentStatus = 'Completed';
             modified = true;
         }
     }
@@ -762,7 +770,7 @@ function getStoredApplications() {
             name: 'Sufyan',
             type: "Learner's Licence",
             status: 'Approved',
-            date: '10 May 2026',
+            date: oneMonthAgoStr,
             citizenId: 'sufyan@gmail.com',
             vehicleClasses: ['MCWG', 'LMV'],
             serviceDetails: {
@@ -772,8 +780,11 @@ function getStoredApplications() {
                 vehicleClasses: ['MCWG', 'LMV'],
                 vehicleClass: 'MCWG, LMV',
                 llNumber: 'LL-SUFYAN-001',
-                issueDate: '10 May 2026',
-                validity: '10 May 2026 to 10 Nov 2026'
+                issueDate: oneMonthAgoStr,
+                validity: oneMonthAgoStr + ' to 14 Jan 2027',
+                allocatedTestDate: todayFormatted,
+                testDate: todayFormatted,
+                appointmentStatus: 'Completed'
             }
         });
         modified = true;
@@ -4881,13 +4892,14 @@ function getLlEligibilityInfo(app) {
     if (!app) return { isEligible: false, reason: 'No application record found.' };
 
     var isDemo = (app.id === 'LL-DEMO-001' || app.isPrototypeDemo);
-    var isSufyan = (app.id === 'LL-SUFYAN-001' || (app.citizenId && app.citizenId.toLowerCase().includes('sufyan')) || (app.name && app.name.toLowerCase().includes('sufyan')));
+    var isSufyan = (app.id === 'LL-SUFYAN-001' || app.id === 'APP-801439' || (app.citizenId && app.citizenId.toLowerCase().includes('sufyan')) || (app.name && app.name.toLowerCase().includes('sufyan')));
 
-    var issueDateStr = (app.serviceDetails && app.serviceDetails.issueDate) || app.date || app.createdAt || '10 May 2026';
+    var todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    var issueDateStr = isSufyan ? '14 Jul 2026' : ((app.serviceDetails && app.serviceDetails.issueDate) || app.date || app.createdAt || '14 Jul 2026');
     
     var issueDateObj = new Date(issueDateStr);
     if (isNaN(issueDateObj.getTime())) {
-        issueDateObj = new Date('2026-05-10');
+        issueDateObj = new Date('2026-07-14');
     }
 
     var minEligibleDateObj = new Date(issueDateObj.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -4898,10 +4910,11 @@ function getLlEligibilityInfo(app) {
             isEligible: true,
             isDemo: isDemo,
             isSufyan: isSufyan,
-            daysHeld: 35,
+            daysHeld: 31,
             daysRemaining: 0,
-            issueDateStr: isSufyan ? '10 May 2026' : '12 May 2026',
-            eligibleDateStr: isSufyan ? '09 Jun 2026' : '11 Jun 2026',
+            issueDateStr: isSufyan ? '14 Jul 2026' : '12 May 2026',
+            eligibleDateStr: isSufyan ? todayFormatted : '11 Jun 2026',
+            testDateStr: todayFormatted,
             message: 'Eligible for Permanent Licence (30-day learning period completed)'
         };
     }
