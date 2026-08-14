@@ -130,12 +130,48 @@ function getAuditLog() {
         { id: 'AE-1003', timestampReadable: '13/08/2026, 10:05:00 AM', appId: 'APP-DEMO-001', eventType: 'TEST_CONDUCTED', actor: 'TG-03 Test Operator', role: 'TEST_CENTRE_OPERATOR', details: 'Physical driving test conducted on automated track at TG-03.', hash: 'sha256:c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef12' },
         { id: 'AE-1004', timestampReadable: '13/08/2026, 10:15:00 AM', appId: 'APP-DEMO-001', eventType: 'EVIDENCE_LOCKED', actor: 'TG-03 Test Operator', role: 'TEST_CENTRE_OPERATOR', details: 'Evidence Package locked (EV-DEMO-001) with SHA-256 hash.', hash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' },
         { id: 'AE-1005', timestampReadable: '13/08/2026, 10:16:30 AM', appId: 'APP-DEMO-001', eventType: 'AI_REPORT_GENERATED', actor: 'AI System', role: 'SYSTEM_AI', details: 'AI telemetry report generated. Telemetry Score: 95/100 (RECOMMEND PASS).', hash: 'sha256:d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef123' },
-        { id: 'AE-1006', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Evaluator 1 allocated: Officer 17 (TG-08) via automated cross-RTO algorithm.', hash: 'sha256:e5f678901234567890abcdef1234567890abcdef1234567890abcdef1234' },
-        { id: 'AE-1007', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Evaluator 2 allocated: Officer 31 (TG-12) via automated cross-RTO algorithm.', hash: 'sha256:f678901234567890abcdef1234567890abcdef1234567890abcdef12345' }
+        { id: 'AE-1006', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Independent evaluator automatically allocated through cross-RTO assignment.', hash: 'sha256:e5f678901234567890abcdef1234567890abcdef1234567890abcdef1234' },
+        { id: 'AE-1007', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Independent evaluator automatically allocated through cross-RTO assignment.', hash: 'sha256:f678901234567890abcdef1234567890abcdef1234567890abcdef12345' }
     ];
     try { localStorage.setItem('drivesetu_audit_log', JSON.stringify(initialLog)); } catch(e) {}
     return initialLog;
 }
+
+// Automatic localStorage sanitizer for active sessions
+(function sanitizeStoredDataOnLoad() {
+    try {
+        var rawLog = localStorage.getItem('drivesetu_audit_log');
+        if (rawLog && (rawLog.indexOf('Officer 17') !== -1 || rawLog.indexOf('Officer 31') !== -1)) {
+            var log = JSON.parse(rawLog);
+            log = log.map(function(ev) {
+                if (ev.details) {
+                    ev.details = ev.details
+                        .replace(/Officer 17 \([^)]+\)/gi, 'Independent Evaluator')
+                        .replace(/Officer 31 \([^)]+\)/gi, 'Independent Evaluator')
+                        .replace(/Evaluator 1 allocated: Officer \d+ \([^)]+\)/gi, 'Independent evaluator automatically allocated through cross-RTO assignment.')
+                        .replace(/Evaluator 2 allocated: Officer \d+ \([^)]+\)/gi, 'Independent evaluator automatically allocated through cross-RTO assignment.');
+                }
+                return ev;
+            });
+            localStorage.setItem('drivesetu_audit_log', JSON.stringify(log));
+        }
+
+        var rawRev = localStorage.getItem('drivesetu_pending_reviews');
+        if (rawRev && (rawRev.indexOf('Officer 17') !== -1 || rawRev.indexOf('Officer 31') !== -1 || rawRev.indexOf('TG-08 + TG-12') !== -1)) {
+            var revs = JSON.parse(rawRev);
+            revs = revs.map(function(r) {
+                if (r.notes) {
+                    r.notes = r.notes.replace(/Allocated to Officer 17 \([^)]+\) & Officer 31 \([^)]+\)/gi, 'Allocated via Cross-RTO Evaluation Engine.');
+                }
+                if (r.reviewedBy) {
+                    r.reviewedBy = r.reviewedBy.replace(/Dual Consensus \(TG-08 \+ TG-12\)/gi, 'Dual Independent Consensus');
+                }
+                return r;
+            });
+            localStorage.setItem('drivesetu_pending_reviews', JSON.stringify(revs));
+        }
+    } catch(e) {}
+})();
 
 function appendAuditEvent(appId, eventType, actor, role, details) {
     var log = getAuditLog();
@@ -468,7 +504,7 @@ function renderAdminDashboard() {
             '<i class="fa-solid fa-arrow-right" style="color:#f97316;"></i>' +
             '<div style="background:#fff7ed; border:1px solid #fdba74; padding:0.4rem 0.7rem; border-radius:6px; color:#9a3412;">Auto Cross-RTO</div>' +
             '<i class="fa-solid fa-arrow-right" style="color:#f97316;"></i>' +
-            '<div style="background:#fef3c7; border:1px solid #fbbf24; padding:0.4rem 0.7rem; border-radius:6px; color:#92400e;">Evaluator 1 + 2</div>' +
+            '<div style="background:#fef3c7; border:1px solid #fbbf24; padding:0.4rem 0.7rem; border-radius:6px; color:#92400e;">Independent Dual Review</div>' +
             '<i class="fa-solid fa-arrow-right" style="color:#10b981;"></i>' +
             '<div style="background:#d1fae5; border:1px solid #6ee7b7; padding:0.4rem 0.7rem; border-radius:6px; color:#065f46;">Consensus</div>' +
             '<i class="fa-solid fa-arrow-right" style="color:#10b981;"></i>' +
@@ -595,7 +631,7 @@ function getStoredReviews() {
             licenceType: 'Permanent Licence',
             mp4Name: 'APP-DEMO-001_TestVideo.mp4 (28.4MB)',
             pdfName: 'APP-DEMO-001_AI_Report.pdf (1.4MB)',
-            notes: 'Driving test completed at TG-03. Evidence locked (EV-DEMO-001). Allocated to Officer 17 (TG-08) & Officer 31 (TG-12).',
+            notes: 'Driving test completed at TG-03. Evidence locked (EV-DEMO-001). Allocated via Cross-RTO Evaluation Engine.',
             submittedOn: '13 Aug 2026',
             status: 'Pending Review',
             reviewedBy: null
@@ -609,7 +645,7 @@ function getStoredReviews() {
             notes: 'AI Track Test passed 98% clean',
             submittedOn: '12 Jul 2026',
             status: 'Approved',
-            reviewedBy: 'Dual Consensus (TG-08 + TG-12)'
+            reviewedBy: 'Dual Independent Consensus'
         }
     ];
     localStorage.setItem('drivesetu_pending_reviews', JSON.stringify(defaults));
@@ -3615,14 +3651,26 @@ function buildReviewModalHTML(appId) {
         }).join('');
     }
 
-    // Also display Evaluator 1 & Evaluator 2 decisions in history if logged in as Admin or if consensus reached
-    if (appObj && (isAdmin || appObj.status === 'Approved' || appObj.status === 'Rejected') && (appObj.evaluator1 || appObj.evaluator2)) {
+    if (appObj && isReviewer) {
+        var myReviewStatus = 'Pending';
+        var myOfficerId = session ? session.officerId : null;
+        if (appObj.evaluator1 && appObj.evaluator1.officerId === myOfficerId) myReviewStatus = appObj.evaluator1.decision || 'Pending';
+        if (appObj.evaluator2 && appObj.evaluator2.officerId === myOfficerId) myReviewStatus = appObj.evaluator2.decision || 'Pending';
+        if (appObj.adjudicator && appObj.adjudicator.officerId === myOfficerId) myReviewStatus = appObj.adjudicator.decision || 'Pending';
+
+        var myColor = myReviewStatus === 'PASS' ? '#148f60' : myReviewStatus === 'FAIL' ? '#c53030' : '#d46b08';
+        var myStatusHtml = '<div style="background:#fff; border:1px solid var(--border); border-radius:6px; padding:0.65rem 0.85rem; margin-bottom:0.6rem; font-size:0.82rem;">' +
+            '<div class="flex-between"><strong>Your Assignment: <span style="color:var(--text-main);">Independent Evaluator</span></strong><span class="badge" style="background:#f1f5f9; color:' + myColor + '; border:1px solid var(--border);">Your Review: ' + myReviewStatus + '</span></div>' +
+            '<div style="margin-top:0.35rem; color:var(--text-muted); font-size:0.78rem;"><i class="fa-solid fa-shield-halved" style="color:var(--primary);"></i> Automatically allocated through the DriveSetu Cross-RTO Allocation Engine. Independent review process active.</div>' +
+        '</div>';
+        historyHTML = myStatusHtml + historyHTML;
+    } else if (appObj && isAdmin && (appObj.evaluator1 || appObj.evaluator2)) {
         var evalHist = '';
         if (appObj.evaluator1) {
             var e1Dec = appObj.evaluator1.decision || 'Pending';
             var e1Color = e1Dec === 'PASS' ? '#148f60' : e1Dec === 'FAIL' ? '#c53030' : '#94a3b8';
             evalHist += '<div style="background:#fff; border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.4rem; font-size:0.78rem;">' +
-                '<strong>Evaluator 1 (' + appObj.evaluator1.rtoCode + '): <span style="color:' + e1Color + ';">' + e1Dec + '</span></strong>' +
+                '<strong>Evaluator 1 Governance Record: <span style="color:' + e1Color + ';">' + e1Dec + '</span></strong>' +
                 (appObj.evaluator1.reason ? '<div style="margin-top:0.2rem;">Reason: <em>' + appObj.evaluator1.reason + '</em></div>' : '') +
                 '</div>';
         }
@@ -3630,7 +3678,7 @@ function buildReviewModalHTML(appId) {
             var e2Dec = appObj.evaluator2.decision || 'Pending';
             var e2Color = e2Dec === 'PASS' ? '#148f60' : e2Dec === 'FAIL' ? '#c53030' : '#94a3b8';
             evalHist += '<div style="background:#fff; border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.4rem; font-size:0.78rem;">' +
-                '<strong>Evaluator 2 (' + appObj.evaluator2.rtoCode + '): <span style="color:' + e2Color + ';">' + e2Dec + '</span></strong>' +
+                '<strong>Evaluator 2 Governance Record: <span style="color:' + e2Color + ';">' + e2Dec + '</span></strong>' +
                 (appObj.evaluator2.reason ? '<div style="margin-top:0.2rem;">Reason: <em>' + appObj.evaluator2.reason + '</em></div>' : '') +
                 '</div>';
         }
@@ -3638,7 +3686,7 @@ function buildReviewModalHTML(appId) {
             var adjDec = appObj.adjudicator.decision || 'Pending';
             var adjColor = adjDec === 'PASS' ? '#148f60' : adjDec === 'FAIL' ? '#c53030' : '#94a3b8';
             evalHist += '<div style="background:#fff; border:1px solid var(--border); border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.4rem; font-size:0.78rem;">' +
-                '<strong>Round 3 Adjudicator (' + appObj.adjudicator.rtoCode + '): <span style="color:' + adjColor + ';">' + adjDec + '</span></strong>' +
+                '<strong>Round 3 Adjudicator Governance Record: <span style="color:' + adjColor + ';">' + adjDec + '</span></strong>' +
                 (appObj.adjudicator.reason ? '<div style="margin-top:0.2rem;">Reason: <em>' + appObj.adjudicator.reason + '</em></div>' : '') +
                 '</div>';
         }
@@ -7216,7 +7264,7 @@ function testCentreSendToRto() {
                 allocatedOfficerId: evals.evaluator1.officerId,
                 officerName: evals.evaluator1.name,
                 officerRto: evals.evaluator1.rtoCode,
-                allocationMethod: 'Automated Cross-RTO Allocation (Evaluator 1)',
+                allocationMethod: 'Automated Cross-RTO Allocation',
                 timestamp: new Date().toLocaleString('en-IN'),
                 status: 'Assigned'
             });
@@ -7226,7 +7274,7 @@ function testCentreSendToRto() {
                 allocatedOfficerId: evals.evaluator2.officerId,
                 officerName: evals.evaluator2.name,
                 officerRto: evals.evaluator2.rtoCode,
-                allocationMethod: 'Automated Cross-RTO Allocation (Evaluator 2)',
+                allocationMethod: 'Automated Cross-RTO Allocation',
                 timestamp: new Date().toLocaleString('en-IN'),
                 status: 'Assigned'
             });
@@ -7239,8 +7287,7 @@ function testCentreSendToRto() {
     appendAuditEvent(app.id, 'TEST_CONDUCTED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Driving test physically conducted at ' + testRto);
     appendAuditEvent(app.id, 'EVIDENCE_LOCKED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Evidence Package locked (' + evidenceId + ') with SHA-256 integrity hash.');
     appendAuditEvent(app.id, 'AI_REPORT_GENERATED', 'AI System', 'SYSTEM_AI', 'AI telemetry analysis completed. Telemetry score: 92/100.');
-    appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Evaluator 1 automatically allocated: ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ')');
-    appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Evaluator 2 automatically allocated: ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ')');
+    appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Independent evaluator automatically allocated through cross-RTO assignment.');
 
     // Update drivesetu_pending_reviews
     var reviewFound = false;
@@ -7250,7 +7297,7 @@ function testCentreSendToRto() {
             reviews[r].mp4Name = evidenceObj.video.fileName;
             reviews[r].pdfName = evidenceObj.aiReport.fileName;
             reviews[r].videoDataUrl = evidenceObj.video.dataUrl;
-            reviews[r].notes = 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').';
+            reviews[r].notes = 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated via Cross-RTO Evaluation Engine.';
             reviews[r].submittedOn = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'});
             reviewFound = true;
             break;
@@ -7265,7 +7312,7 @@ function testCentreSendToRto() {
             pdfName: evidenceObj.aiReport.fileName,
             videoDataUrl: evidenceObj.video.dataUrl,
             pdfDataUrl: '',
-            notes: 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ') & ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ').',
+            notes: 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated via Cross-RTO Evaluation Engine.',
             submittedOn: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
             status: 'Pending Review',
             reviewedBy: null
@@ -7273,7 +7320,7 @@ function testCentreSendToRto() {
     }
     saveStoredReviews(reviews);
 
-    alert('🔒 Evidence Package Locked & Dual Independent Evaluators Allocated!\n\nEvidence ID: ' + evidenceId + '\nIntegrity Hash: ' + sha256Hash + '\n\n🎲 Cross-RTO Randomized Allocation:\nEvaluator 1: ' + evals.evaluator1.name + ' (' + evals.evaluator1.rtoCode + ')\nEvaluator 2: ' + evals.evaluator2.name + ' (' + evals.evaluator2.rtoCode + ')\n\nNeither the test centre operator nor the admin can choose evaluators.');
+    alert('🔒 Evidence Package Locked & Independent Evaluation Assigned!\n\nEvidence ID: ' + evidenceId + '\nIntegrity Hash: ' + sha256Hash + '\n\n🎲 Independent evaluation assigned automatically through the DriveSetu Cross-RTO Allocation Engine.');
     resetTestCentreWorkflow();
 }
 
@@ -7695,7 +7742,7 @@ function renderEvidenceVerificationPage() {
                         '<div>SHA-256 Integrity Hash: <code style="font-size:0.74rem; background:#fff; padding:2px 6px; border-radius:4px;">' + hashVal + '</code></div>' +
                         '<div>Candidate: <strong>' + candidateName + '</strong></div>' +
                         '<div>Physical Test Centre: <strong>' + rtoText + '</strong></div>' +
-                        '<div>Assigned Evaluators: <strong>' + evalText + '</strong></div>' +
+                        '<div>Independent Evaluation: <strong>Assigned automatically via Cross-RTO Allocation Engine</strong></div>' +
                         '<div>Test Status: <strong>Evidence Locked & Assigned for Cross-RTO Review</strong></div>' +
                     '</div>' +
                 '</div>' +
