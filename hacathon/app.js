@@ -182,6 +182,102 @@ function allocateDualEvaluators(testRtoCode) {
     return { evaluator1: eval1, evaluator2: eval2 };
 }
 
+// ─── ROLE-BASED INFORMATION SECURITY & BLINDING ENGINE ───
+function getBlindedApplicationForRole(appObj, userRole, currentOfficerId) {
+    if (!appObj) return appObj;
+
+    // Deep copy to prevent mutating in-memory store
+    var b = JSON.parse(JSON.stringify(appObj));
+
+    // System Admin sees full governance audit data for oversight
+    if (userRole === 'ADMIN') {
+        return b;
+    }
+
+    // 1. BLIND EVALUATOR IDENTITIES & CO-EVALUATOR DATA
+    var isEval1 = b.evaluator1 && currentOfficerId && (b.evaluator1.officerId === currentOfficerId || b.evaluator1.email === currentOfficerId);
+    var isEval2 = b.evaluator2 && currentOfficerId && (b.evaluator2.officerId === currentOfficerId || b.evaluator2.email === currentOfficerId);
+
+    if (userRole === 'REVIEWING_OFFICER') {
+        if (isEval1) {
+            b.evaluator1 = {
+                officerId: currentOfficerId,
+                rtoCode: 'CONFIDENTIAL',
+                name: 'You (Assigned Evaluator)',
+                decision: b.evaluator1.decision || null,
+                reason: b.evaluator1.reason || null,
+                timestamp: b.evaluator1.timestamp || null,
+                timestampReadable: b.evaluator1.timestampReadable || null
+            };
+            delete b.evaluator2; // Blind Evaluator 2 identity completely
+        } else if (isEval2) {
+            b.evaluator2 = {
+                officerId: currentOfficerId,
+                rtoCode: 'CONFIDENTIAL',
+                name: 'You (Assigned Evaluator)',
+                decision: b.evaluator2.decision || null,
+                reason: b.evaluator2.reason || null,
+                timestamp: b.evaluator2.timestamp || null,
+                timestampReadable: b.evaluator2.timestampReadable || null
+            };
+            delete b.evaluator1; // Blind Evaluator 1 identity completely
+        } else {
+            delete b.evaluator1;
+            delete b.evaluator2;
+        }
+
+        if (b.adjudicator && b.adjudicator.officerId !== currentOfficerId) {
+            delete b.adjudicator;
+        }
+    } else {
+        // Test Centre Operator or Citizen: Delete ALL evaluator details
+        delete b.evaluator1;
+        delete b.evaluator2;
+        delete b.adjudicator;
+    }
+
+    // 2. SANITIZE AUDIT TRAIL FOR NON-ADMIN ROLES
+    if (b.auditTrail && Array.isArray(b.auditTrail)) {
+        b.auditTrail = b.auditTrail.map(function(ev) {
+            var sEv = JSON.parse(JSON.stringify(ev));
+
+            if (sEv.eventType === 'EVALUATOR_ALLOCATED' || sEv.eventType === 'OFFICER_ALLOCATED') {
+                sEv.actor = 'System Engine';
+                sEv.role = 'SYSTEM';
+                sEv.details = 'Independent evaluator automatically allocated through cross-RTO assignment.';
+            } else if (sEv.eventType === 'EVALUATION_SUBMITTED') {
+                if (currentOfficerId && (sEv.actor.indexOf(currentOfficerId) !== -1 || (userRole === 'REVIEWING_OFFICER' && (isEval1 || isEval2)))) {
+                    sEv.actor = 'You (Assigned Evaluator)';
+                    sEv.details = 'Your independent review decision submitted.';
+                } else {
+                    sEv.actor = 'Independent Evaluator';
+                    sEv.details = 'Independent evaluation decision submitted.';
+                }
+            } else if (sEv.eventType === 'DISAGREEMENT_DETECTED') {
+                sEv.actor = 'System Engine';
+                sEv.details = 'Independent dual evaluation completed with conflicting decisions.';
+            } else if (sEv.eventType === 'ADJUDICATION_ASSIGNED') {
+                sEv.actor = 'System Engine';
+                sEv.details = 'Automated adjudication assigned through cross-RTO engine.';
+            }
+
+            if (sEv.details) {
+                sEv.details = sEv.details
+                    .replace(/OFFICER-\d+/gi, 'Independent Evaluator')
+                    .replace(/Officer \d+ \([^)]+\)/gi, 'Independent Evaluator')
+                    .replace(/Officer \d+/gi, 'Independent Evaluator')
+                    .replace(/OFF-[A-Z0-9]+/gi, 'Independent Evaluator')
+                    .replace(/\(TG-\d+\)/gi, '')
+                    .replace(/E1 \([^)]+\)/gi, 'Independent Review')
+                    .replace(/E2 \([^)]+\)/gi, 'Independent Review');
+            }
+            return sEv;
+        });
+    }
+
+    return b;
+}
+
 // ─── EVALUATOR DECISION SUBMISSION (Role-Guarded, Blind) ───
 function submitEvaluatorDecision(appId, decision, reason) {
     var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
@@ -215,40 +311,40 @@ function submitEvaluatorDecision(appId, decision, reason) {
     appObj[evalSlot].timestamp = new Date().toISOString();
     appObj[evalSlot].timestampReadable = new Date().toLocaleString('en-IN');
 
-    appendAuditEvent(appId, 'EVALUATION_SUBMITTED', session.name + ' (' + session.rtoCode + ')', 'REVIEWING_OFFICER',
-        'Decision: ' + decision + ' | Slot: ' + evalSlot + ' | Reason: ' + reason);
+    appendAuditEvent(appId, 'EVALUATION_SUBMITTED', session.officerId, 'REVIEWING_OFFICER',
+        'Decision: ' + decision + ' | Reason: ' + reason);
 
     var e1 = appObj.evaluator1, e2 = appObj.evaluator2;
     if (e1.decision && e2.decision) {
         if (e1.decision === 'PASS' && e2.decision === 'PASS') {
             appObj.evaluationStatus = 'CONSENSUS_PASS'; appObj.status = 'Approved';
             appObj.reviewStage = 'Licence Approved (Dual Independent Consensus)';
-            appendAuditEvent(appId, 'CONSENSUS_REACHED', 'System', 'SYSTEM', 'Both evaluators agreed: PASS');
-            appendAuditEvent(appId, 'FINAL_DECISION', 'System', 'SYSTEM', 'APPROVED');
-            appendAuditEvent(appId, 'LICENCE_ISSUED', 'System', 'SYSTEM', 'Licence issued via dual consensus');
+            appendAuditEvent(appId, 'CONSENSUS_REACHED', 'System Engine', 'SYSTEM', 'Independent dual evaluation completed: Consensus PASS');
+            appendAuditEvent(appId, 'FINAL_DECISION', 'System Engine', 'SYSTEM', 'APPROVED');
+            appendAuditEvent(appId, 'LICENCE_ISSUED', 'System Engine', 'SYSTEM', 'Licence issued via dual independent consensus');
             var reviews = getStoredReviews();
             for (var r = 0; r < reviews.length; r++) {
-                if (reviews[r].appId === appId) { reviews[r].status = 'Approved'; reviews[r].reviewedBy = 'Dual Consensus (' + e1.name + ' + ' + e2.name + ')'; }
+                if (reviews[r].appId === appId) { reviews[r].status = 'Approved'; reviews[r].reviewedBy = 'Dual Independent Consensus'; }
             }
             saveStoredReviews(reviews); saveStoredApplications(apps);
-            alert('✅ CONSENSUS: Both evaluators agreed PASS.\n\nEvaluator 1: ' + e1.name + ' (' + e1.rtoCode + ') — PASS\nEvaluator 2: ' + e2.name + ' (' + e2.rtoCode + ') — PASS\n\nLicence APPROVED for ' + appObj.name);
+            alert('✅ CONSENSUS REACHED: Both independent evaluators agreed PASS.\n\nLicence APPROVED for ' + appObj.name);
         } else if (e1.decision === 'FAIL' && e2.decision === 'FAIL') {
             appObj.evaluationStatus = 'CONSENSUS_FAIL'; appObj.status = 'Rejected';
             appObj.reviewStage = 'Rejected (Dual Independent Consensus)';
-            appendAuditEvent(appId, 'CONSENSUS_REACHED', 'System', 'SYSTEM', 'Both evaluators agreed: FAIL');
-            appendAuditEvent(appId, 'FINAL_DECISION', 'System', 'SYSTEM', 'REJECTED');
+            appendAuditEvent(appId, 'CONSENSUS_REACHED', 'System Engine', 'SYSTEM', 'Independent dual evaluation completed: Consensus FAIL');
+            appendAuditEvent(appId, 'FINAL_DECISION', 'System Engine', 'SYSTEM', 'REJECTED');
             var reviews2 = getStoredReviews();
             for (var r2 = 0; r2 < reviews2.length; r2++) {
-                if (reviews2[r2].appId === appId) { reviews2[r2].status = 'Rejected'; reviews2[r2].reviewedBy = 'Dual Consensus (' + e1.name + ' + ' + e2.name + ')'; }
+                if (reviews2[r2].appId === appId) { reviews2[r2].status = 'Rejected'; reviews2[r2].reviewedBy = 'Dual Independent Consensus'; }
             }
             saveStoredReviews(reviews2); saveStoredApplications(apps);
-            alert('❌ CONSENSUS: Both evaluators agreed FAIL.\n\nApplication REJECTED for ' + appObj.name);
+            alert('❌ CONSENSUS REACHED: Both independent evaluators agreed FAIL.\n\nApplication REJECTED for ' + appObj.name);
         } else {
             appObj.evaluationStatus = 'DISAGREEMENT';
             appObj.status = 'Disagreement - Adjudication Required';
             appObj.reviewStage = 'Evaluator Disagreement — Adjudication Pending';
-            appendAuditEvent(appId, 'DISAGREEMENT_DETECTED', 'System', 'SYSTEM',
-                'E1 (' + e1.name + '): ' + e1.decision + ' | E2 (' + e2.name + '): ' + e2.decision);
+            appendAuditEvent(appId, 'DISAGREEMENT_DETECTED', 'System Engine', 'SYSTEM',
+                'Independent dual evaluation completed with conflicting decisions.');
             var testRto = (appObj.serviceDetails && appObj.serviceDetails.rtoCode) ? appObj.serviceDetails.rtoCode : 'TG-03';
             var adjEligible = rtoAccounts.filter(function(acc) {
                 return acc.role === 'REVIEWING_OFFICER' && acc.rtoCode !== testRto &&
@@ -258,15 +354,15 @@ function submitEvaluatorDecision(appId, decision, reason) {
                 var adj = adjEligible[Math.floor(Math.random() * adjEligible.length)];
                 appObj.adjudicator = { officerId: adj.officerId, rtoCode: adj.rtoCode, name: adj.name, decision: null, reason: null, timestamp: null, timestampReadable: null };
                 appObj.evaluationStatus = 'ADJUDICATION'; appObj.status = 'Adjudication Review';
-                appObj.reviewStage = 'Adjudication by ' + adj.name + ' (' + adj.rtoCode + ')';
-                appendAuditEvent(appId, 'ADJUDICATION_ASSIGNED', 'System', 'SYSTEM', 'Adjudicator: ' + adj.name + ' (' + adj.rtoCode + ')');
+                appObj.reviewStage = 'Adjudication Pending';
+                appendAuditEvent(appId, 'ADJUDICATION_ASSIGNED', 'System Engine', 'SYSTEM', 'Automated adjudication assigned through cross-RTO engine.');
             }
             saveStoredApplications(apps);
-            alert('⚠️ DISAGREEMENT DETECTED\n\nE1: ' + e1.name + ' — ' + e1.decision + '\nE2: ' + e2.name + ' — ' + e2.decision + '\n\nA third independent evaluator will adjudicate.');
+            alert('⚠️ DISAGREEMENT DETECTED: Independent evaluation completed with conflicting decisions.\n\nCase referred to automated adjudication.');
         }
     } else {
         saveStoredApplications(apps);
-        alert('✅ Evaluation recorded.\n\nDecision: ' + decision + '\nWaiting for the second evaluator.');
+        alert('✅ Evaluation recorded.\n\nDecision: ' + decision + '\n\nYour review has been submitted to the independent evaluation engine.');
     }
     closeReviewModal();
 }
@@ -2465,13 +2561,13 @@ function render() {
                 var myRole = '';
                 var myDecision = '';
                 if (app.evaluator1 && app.evaluator1.officerId === _rs.officerId) {
-                    myRole = 'Independent Evaluator 1';
+                    myRole = 'Independent Evaluator';
                     myDecision = app.evaluator1.decision || 'Pending';
                 } else if (app.evaluator2 && app.evaluator2.officerId === _rs.officerId) {
-                    myRole = 'Independent Evaluator 2';
+                    myRole = 'Independent Evaluator';
                     myDecision = app.evaluator2.decision || 'Pending';
                 } else if (app.adjudicator && app.adjudicator.officerId === _rs.officerId) {
-                    myRole = 'Independent Adjudicator (Round 3)';
+                    myRole = 'Independent Adjudicator';
                     myDecision = app.adjudicator.decision || 'Pending';
                 }
 
@@ -3471,6 +3567,12 @@ function buildReviewModalHTML(appId) {
     var session = safeParseJSON(sessionStorage.getItem('rtoSession'), null);
     var isAdmin = session && session.role === 'ADMIN';
     var isReviewer = session && session.role === 'REVIEWING_OFFICER';
+    var userRole = isAdmin ? 'ADMIN' : (isReviewer ? 'REVIEWING_OFFICER' : 'CITIZEN');
+    var officerId = session ? session.officerId : null;
+
+    if (appObj) {
+        appObj = getBlindedApplicationForRole(appObj, userRole, officerId);
+    }
 
     var candidateName = (reviewObj && reviewObj.candidateName) ? reviewObj.candidateName : (appObj ? appObj.name : 'Applicant');
     var licenceType = (reviewObj && reviewObj.licenceType) ? reviewObj.licenceType : (appObj ? appObj.type : 'Driving Licence');
@@ -3743,10 +3845,10 @@ function buildReviewModalHTML(appId) {
                 '<!-- Proposed Independent Evaluation Model Banner -->' +
                 '<div style="background:#e6f4ff; border:1px solid #91caff; border-radius:var(--radius-md); padding:0.85rem 1rem; margin-bottom:1rem; font-size:0.82rem; color:#096dd9;">' +
                     '<div class="flex-between" style="margin-bottom:0.3rem;">' +
-                        '<strong><i class="fa-solid fa-diagram-project"></i> Proposed Independent Evaluation Model (Cross-RTO Separation)</strong>' +
+                        '<strong><i class="fa-solid fa-shield-halved"></i> Independent Review Assignment</strong>' +
                         '<span class="badge badge-approved" style="font-size:0.75rem;"><i class="fa-solid fa-lock"></i> Locked Evidence</span>' +
                     '</div>' +
-                    '<div>Physical Test Location: <strong>' + testRtoName + ' (' + testRtoCode + ')</strong> &nbsp;&bull;&nbsp; Assigned Reviewing Pool: <strong>Independent RTO Pool (' + assignedRtoCode + ')</strong></div>' +
+                    '<div>Automatically allocated through the DriveSetu Cross-RTO Allocation Engine.</div>' +
                 '</div>' +
 
                 '<div style="background:#f8faf9; padding:0.75rem 1rem; border-radius:var(--radius-md); border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">' +
@@ -3763,7 +3865,7 @@ function buildReviewModalHTML(appId) {
                     historyHTML +
                 '</div>') : '') +
 
-                <!-- Dual Document Display (MP4 Video + Telemetry + PDF AI Report) -->
+                '<!-- Dual Document Display (MP4 Video + Telemetry + PDF AI Report) -->' +
                 '<div class="grid-2" style="grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1rem;">' +
                     '<!-- MP4 Card with Real Video Player or Empty State -->' +
                     '<div class="card" style="padding:1rem;">' +
