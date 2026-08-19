@@ -517,7 +517,7 @@ function renderAdminDashboard() {
 
     // Stats row 1
     var statsRow1 = '<div class="stats-row animate-in" style="margin-bottom:0.75rem;">' +
-        '<div class="stat-card"><div class="stat-icon" style="background:#e8f7f1;color:#1aab74;"><i class="fa-solid fa-folder-open"></i></div><div><div class="stat-value">' + totalApps + '</div><div class="stat-label">Total Applications</div></div></div>' +
+        '<div class="stat-card"><div class="stat-icon" style="background:#eff6ff;color:#2563eb;"><i class="fa-solid fa-folder-open"></i></div><div><div class="stat-value">' + totalApps + '</div><div class="stat-label">Total Applications</div></div></div>' +
         '<div class="stat-card"><div class="stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-clipboard-check"></i></div><div><div class="stat-value">' + testsCompleted + '</div><div class="stat-label">Tests Completed</div></div></div>' +
         '<div class="stat-card"><div class="stat-icon" style="background:#fff7ed;color:#ea580c;"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="stat-value">' + awaitingReview + '</div><div class="stat-label">Awaiting Review</div></div></div>' +
         '<div class="stat-card"><div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-robot"></i></div><div><div class="stat-value">' + aiReports + '</div><div class="stat-label">AI Reports</div></div></div>' +
@@ -2475,7 +2475,7 @@ function render() {
             // Stats strip
             '<div class="stats-row animate-in" style="margin-bottom:1.25rem;">' +
                 '<div class="stat-card"><div class="stat-icon" style="background:#fff7e6;color:#d46b08;"><i class="fa-solid fa-hourglass-half"></i></div><div><div class="stat-value">' + _totalPending + '</div><div class="stat-label">Pending Review</div></div></div>' +
-                '<div class="stat-card"><div class="stat-icon" style="background:#e8f7f1;color:#1aab74;"><i class="fa-solid fa-circle-check"></i></div><div><div class="stat-value">' + _totalApproved + '</div><div class="stat-label">Approved</div></div></div>' +
+                '<div class="stat-card"><div class="stat-icon" style="background:#eff6ff;color:#2563eb;"><i class="fa-solid fa-circle-check"></i></div><div><div class="stat-value">' + _totalApproved + '</div><div class="stat-label">Approved</div></div></div>' +
                 '<div class="stat-card"><div class="stat-icon" style="background:#fff0f0;color:#c53030;"><i class="fa-solid fa-circle-xmark"></i></div><div><div class="stat-value">' + _totalRejected + '</div><div class="stat-label">Rejected</div></div></div>' +
                 '<div class="stat-card"><div class="stat-icon" style="background:#e6f4ff;color:#096dd9;"><i class="fa-solid fa-layer-group"></i></div><div><div class="stat-value">' + pendingReviews.length + '</div><div class="stat-label">Total Submissions</div></div></div>' +
             '</div>' +
@@ -2520,7 +2520,7 @@ function render() {
                 pageContent = '' +
                     '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'rto\'"><i class="fa-solid fa-arrow-left"></i> Back to RTO Dashboard</button></div>' +
                     '<div class="stats-row animate-in">' +
-                        '<div class="stat-card"><div class="stat-icon" style="background:#e8f7f1; color:#1aab74;"><i class="fa-solid fa-id-card"></i></div><div><div class="stat-value">1,240</div><div class="stat-label">Licences Issued</div></div></div>' +
+                        '<div class="stat-card"><div class="stat-icon" style="background:#eff6ff; color:#2563eb;"><i class="fa-solid fa-id-card"></i></div><div><div class="stat-value">1,240</div><div class="stat-label">Licences Issued</div></div></div>' +
                         '<div class="stat-card"><div class="stat-icon" style="background:#e6f4ff; color:#096dd9;"><i class="fa-solid fa-chart-line"></i></div><div><div class="stat-value">89.5%</div><div class="stat-label">Pass Rate</div></div></div>' +
                         '<div class="stat-card"><div class="stat-icon" style="background:#fff7e6; color:#d46b08;"><i class="fa-solid fa-business-time"></i></div><div><div class="stat-value">2.4 Days</div><div class="stat-label">Avg Processing Time</div></div></div>' +
                         '<div class="stat-card"><div class="stat-icon" style="background:#f6ffed; color:#389e0d;"><i class="fa-solid fa-indian-rupee-sign"></i></div><div><div class="stat-value">₹3,45,000</div><div class="stat-label">Monthly Revenue</div></div></div>' +
@@ -3163,7 +3163,7 @@ function renderReportsCharts() {
                 datasets: [{
                     label: 'Applications Received',
                     data: [540, 410, 180, 60, 50],
-                    backgroundColor: ['#1aab74', '#148f60', '#36bf8d', '#63d4aa', '#9ee4cb'],
+                    backgroundColor: ['#2563eb', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd'],
                     borderRadius: 6
                 }]
             },

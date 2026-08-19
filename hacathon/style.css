@@ -1,14 +1,14 @@
 :root {
-    --primary: #1aab74;
-    --primary-dark: #148f60;
-    --primary-light: #e8f7f1;
-    --primary-mid: #c2ead8;
-    --bg: #f2f5f3;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #eff6ff;
+    --primary-mid: #bfdbfe;
+    --bg: #f8fafc;
     --sidebar-bg: #ffffff;
     --card-bg: #ffffff;
-    --text-main: #16302b;
-    --text-muted: #7a8f89;
-    --border: #e4edea;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
     --shadow: 0 1px 6px rgba(0,0,0,0.06);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
     --radius-sm: 8px;
@@ -577,7 +577,7 @@ body {
 /* ─── LOGIN PAGE ─── */
 .login-page {
     min-height: 100vh;
-    background: linear-gradient(135deg, #e8f7f1 0%, var(--bg) 50%, #dff0e8 100%);
+    background: linear-gradient(135deg, #eff6ff 0%, var(--bg) 50%, #dbeafe 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -708,12 +708,12 @@ body {
 
 /* Header Banner */
 .ai-header-banner {
-    background: linear-gradient(135deg, #16302b 0%, #1aab74 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
     color: #ffffff;
     padding: 1.5rem 1.75rem;
     border-radius: var(--radius-md);
     margin-bottom: 1.25rem;
-    box-shadow: 0 6px 20px rgba(26, 171, 116, 0.18);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.18);
 }
 .ai-header-banner h2 {
     font-size: 1.5rem;
@@ -846,14 +846,14 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 1.1rem;
-    box-shadow: 0 0 14px rgba(26, 171, 116, 0.8);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.8);
     transition: left 0.15s linear;
 }
 .track-path-line {
     position: absolute;
     width: 80%;
     height: 4px;
-    background: linear-gradient(90deg, #1aab74 0%, #36bf8d 50%, #e6a23c 100%);
+    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 50%, #e6a23c 100%);
     border-radius: 2px;
 }
 .sim-play-overlay {
