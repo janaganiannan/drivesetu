@@ -1871,7 +1871,7 @@ function render() {
         var loginType = isCitizenLogin ? 'Citizen' : 'RTO Portal';
         var loginIcon = isCitizenLogin ? 'ph-user' : 'ph-shield-check';
         var loginTarget = isCitizenLogin ? 'citizen' : 'rto';
-        var loginColor = isCitizenLogin ? 'var(--primary)' : 'var(--primary-dark)';
+        var loginColor = isCitizenLogin ? '#dc2626' : 'var(--primary-dark)';
         var defaultEmail = isCitizenLogin ? '' : 'admin@drivesetu.com';
         var defaultPass = isCitizenLogin ? '' : 'admin123';
 
@@ -1897,7 +1897,7 @@ function render() {
         }
 
         var loginHTML = '';
-        loginHTML += '<div class="login-page">';
+        loginHTML += '<div class="login-page ' + (isCitizenLogin ? 'citizen-login-red' : '') + '">';
         loginHTML += '<div class="login-container animate-in">';
         loginHTML += '<div class="login-header">';
         loginHTML += '<div class="login-brand" style="cursor:pointer;" id="loginBrandBtn">';
