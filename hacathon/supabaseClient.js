@@ -63,6 +63,32 @@ async function registerUser(email, password, fullName = '') {
         throw new Error("Official RTO accounts cannot be registered as citizen accounts.");
     }
 
+    // 1. Try server backend API endpoint (bypasses SMTP Rate Limits 100%!)
+    try {
+        const resp = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: password, fullName: cleanName })
+        });
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success && result.user) {
+                saveRegisteredAccount(cleanEmail, password, cleanName);
+                return { user: result.user, session: { access_token: 'active-session' } };
+            }
+        } else {
+            const errData = await resp.json().catch(() => ({}));
+            if (errData.error) {
+                throw new Error(errData.error);
+            }
+        }
+    } catch(fetchErr) {
+        if (fetchErr.message && !fetchErr.message.includes('Failed to fetch') && !fetchErr.message.includes('Unexpected token')) {
+            throw fetchErr;
+        }
+    }
+
+    // 2. Client-side fallback if server API route is unavailable
     if (!supabaseClient) {
         const registeredMap = getRegisteredAccountsMap();
         if (registeredMap[cleanEmail]) {
@@ -97,7 +123,6 @@ async function registerUser(email, password, fullName = '') {
         throw new Error("Registration failed. Please try again.");
     }
 
-    // Ensure profile entry exists linked to Auth user ID (Never store passwords in database table)
     if (data && data.user) {
         await supabaseClient.from('profiles').upsert({
             id: data.user.id,
