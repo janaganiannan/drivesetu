@@ -125,102 +125,43 @@ async function loginUser(email, password) {
 async function authenticateCitizen(email, password, fullName = '') {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName || cleanEmail.split('@')[0];
-    const registeredMap = getRegisteredAccountsMap();
 
     if (isOfficialRtoAccount(cleanEmail)) {
         throw new Error("Email address " + cleanEmail + " is an Official RTO Officer / System Administrator account. Please use the RTO Officer Portal Login to sign in.");
     }
 
-    // 1. Check local registry for existing password match
-    if (registeredMap[cleanEmail]) {
-        var storedPass = registeredMap[cleanEmail].password;
-        if (storedPass && storedPass !== password) {
-            throw new Error("Incorrect password for registered email " + cleanEmail + ". There can only be one account per email address.");
-        }
-    }
-
     if (!supabaseClient) {
-        saveRegisteredAccount(cleanEmail, password, cleanName);
-        return {
-            id: 'USER-' + Date.now(),
-            email: cleanEmail,
-            name: registeredMap[cleanEmail]?.name || cleanName
-        };
-    }
-
-    try {
-        // 2. Try Login with Supabase Auth
-        const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
-            email: cleanEmail,
-            password: password
-        });
-
-        if (!loginError && loginData.user) {
-            saveRegisteredAccount(cleanEmail, password, loginData.user.user_metadata?.full_name || cleanName);
+        const registeredMap = getRegisteredAccountsMap();
+        if (registeredMap[cleanEmail]) {
+            if (registeredMap[cleanEmail].password !== password) {
+                throw new Error("Incorrect password for registered email address " + cleanEmail + ".");
+            }
             return {
-                id: loginData.user.id,
-                email: loginData.user.email,
-                name: loginData.user.user_metadata?.full_name || cleanName,
-                user: loginData.user
+                id: 'USER-' + Date.now(),
+                email: cleanEmail,
+                name: registeredMap[cleanEmail].name || cleanName
             };
         }
-
-        // If login failed (e.g. wrong password for existing user in Supabase)
-        if (loginError && (loginError.message.includes('Invalid login credentials') || loginError.status === 400)) {
-            // Check if user already exists in profiles table
-            const { data: existingProfile } = await supabaseClient.from('profiles').select('id, email, full_name').eq('email', cleanEmail).maybeSingle();
-            if (existingProfile) {
-                throw new Error("Incorrect password for registered email address " + cleanEmail + ". Duplicate accounts are not permitted.");
-            }
-        }
-
-        // 3. If user doesn't exist anywhere, register new account
-        const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
-            email: cleanEmail,
-            password: password,
-            options: {
-                data: { full_name: cleanName }
-            }
-        });
-
-        if (signUpError) {
-            if (signUpError.message.includes('already registered') || signUpError.message.includes('already in use')) {
-                throw new Error("Incorrect password for registered email address " + cleanEmail + ". Duplicate accounts are not permitted.");
-            }
-            throw signUpError;
-        }
-
-        const userObj = signUpData.user;
-        if (userObj) {
-            await supabaseClient.from('profiles').upsert({
-                id: userObj.id,
-                email: cleanEmail,
-                role: ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : 'user',
-                full_name: cleanName,
-                updated_at: new Date().toISOString()
-            });
-        }
-
-        saveRegisteredAccount(cleanEmail, password, cleanName);
-
-        return {
-            id: userObj ? userObj.id : 'USER-' + Date.now(),
-            email: cleanEmail,
-            name: cleanName,
-            user: userObj
-        };
-    } catch (err) {
-        if (err.message.includes('Incorrect password') || err.message.includes('already registered') || err.message.includes('Duplicate accounts')) {
-            throw err;
-        }
-        console.warn("Supabase Auth Warning:", err.message);
-        saveRegisteredAccount(cleanEmail, password, cleanName);
-        return {
-            id: 'USER-' + Date.now(),
-            email: cleanEmail,
-            name: cleanName
-        };
+        throw new Error("Invalid login credentials.");
     }
+
+    // Try Login with Supabase Auth
+    const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+    });
+
+    if (loginError || !loginData.user) {
+        throw new Error("Invalid login credentials.");
+    }
+
+    saveRegisteredAccount(cleanEmail, password, loginData.user.user_metadata?.full_name || cleanName);
+    return {
+        id: loginData.user.id,
+        email: loginData.user.email,
+        name: loginData.user.user_metadata?.full_name || cleanName,
+        user: loginData.user
+    };
 }
 
 /**
