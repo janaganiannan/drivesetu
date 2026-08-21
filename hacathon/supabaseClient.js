@@ -58,17 +58,16 @@ function saveRegisteredAccount(email, password, name) {
 async function registerUser(email, password, fullName = '') {
     const cleanEmail = email.trim().toLowerCase();
     const cleanName = fullName || cleanEmail.split('@')[0];
-    const registeredMap = getRegisteredAccountsMap();
 
     if (isOfficialRtoAccount(cleanEmail)) {
-        throw new Error("Email address " + cleanEmail + " is an Official RTO Officer / System Administrator account. Official RTO accounts cannot be registered as citizen accounts.");
-    }
-
-    if (registeredMap[cleanEmail]) {
-        throw new Error("Account with email address " + cleanEmail + " is already registered. Duplicate accounts with the same email are not permitted.");
+        throw new Error("Official RTO accounts cannot be registered as citizen accounts.");
     }
 
     if (!supabaseClient) {
+        const registeredMap = getRegisteredAccountsMap();
+        if (registeredMap[cleanEmail]) {
+            throw new Error("This email is already registered. Please sign in.");
+        }
         saveRegisteredAccount(cleanEmail, password, cleanName);
         return { user: { id: 'USER-' + Date.now(), email: cleanEmail } };
     }
@@ -82,14 +81,24 @@ async function registerUser(email, password, fullName = '') {
     });
 
     if (error) {
-        if (error.message.includes('already registered') || error.message.includes('already in use')) {
-            throw new Error("Account with email address " + cleanEmail + " is already registered. Duplicate accounts with the same email are not permitted.");
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit') || error.status === 429) {
+            throw new Error("Registration emails are temporarily rate limited by the server. Please try again later or sign in if you already created an account.");
         }
-        throw error;
+        if (msg.includes('already registered') || msg.includes('already in use') || msg.includes('user_already_exists')) {
+            throw new Error("This email is already registered. Please sign in.");
+        }
+        if (msg.includes('invalid email') || msg.includes('unable to validate email')) {
+            throw new Error("Please enter a valid email address.");
+        }
+        if (msg.includes('password should be at least') || msg.includes('weak_password')) {
+            throw new Error("Password must be at least 6 characters long.");
+        }
+        throw new Error("Registration failed. Please try again.");
     }
 
-    // Ensure profile entry exists
-    if (data.user) {
+    // Ensure profile entry exists linked to Auth user ID (Never store passwords in database table)
+    if (data && data.user) {
         await supabaseClient.from('profiles').upsert({
             id: data.user.id,
             email: cleanEmail,
@@ -97,9 +106,9 @@ async function registerUser(email, password, fullName = '') {
             full_name: cleanName,
             updated_at: new Date().toISOString()
         });
+        saveRegisteredAccount(cleanEmail, password, cleanName);
     }
 
-    saveRegisteredAccount(cleanEmail, password, cleanName);
     return data;
 }
 
