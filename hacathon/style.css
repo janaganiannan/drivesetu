@@ -674,40 +674,40 @@ body {
     text-decoration: underline;
 }
 
-/* ─── CITIZEN LOGIN RED THEME ─── */
-.login-page.citizen-login-red {
-    background: linear-gradient(135deg, #fee2e2 0%, #fff5f5 50%, #fca5a5 100%);
+/* ─── CITIZEN LOGIN BLUE THEME ─── */
+.login-page {
+    background: linear-gradient(135deg, #eff6ff 0%, #f0f7ff 50%, #dbeafe 100%) !important;
 }
-.login-page.citizen-login-red .login-card {
-    border-color: #fca5a5;
-    box-shadow: 0 10px 30px rgba(220, 38, 38, 0.15);
+.login-page .login-card {
+    border-color: var(--border);
+    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08);
 }
-.login-page.citizen-login-red .login-avatar {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-    box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+.login-page .login-avatar {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
 }
-.login-page.citizen-login-red .btn-primary {
-    background: #dc2626 !important;
-    border-color: #dc2626 !important;
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+.login-page .btn-primary {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
 }
-.login-page.citizen-login-red .btn-primary:hover {
-    background: #b91c1c !important;
-    border-color: #b91c1c !important;
+.login-page .btn-primary:hover {
+    background: var(--primary-dark) !important;
+    border-color: var(--primary-dark) !important;
 }
-.login-page.citizen-login-red .forgot-link,
-.login-page.citizen-login-red .login-footer a {
-    color: #dc2626 !important;
+.login-page .forgot-link,
+.login-page .login-footer a {
+    color: var(--primary) !important;
 }
-.login-page.citizen-login-red .forgot-link:hover,
-.login-page.citizen-login-red .login-footer a:hover {
-    color: #b91c1c !important;
+.login-page .forgot-link:hover,
+.login-page .login-footer a:hover {
+    color: var(--primary-dark) !important;
 }
-.login-page.citizen-login-red .remember-me input[type="checkbox"] {
-    accent-color: #dc2626 !important;
+.login-page .remember-me input[type="checkbox"] {
+    accent-color: var(--primary) !important;
 }
-.login-page.citizen-login-red .login-title {
-    color: #991b1b;
+.login-page .login-title {
+    color: var(--text-main);
 }
 
 /* ─── LOGOUT BUTTON ─── */
