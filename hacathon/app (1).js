@@ -2002,6 +2002,7 @@ function render() {
         loginHTML += '<div class="login-avatar" style="background:' + loginColor + ';"><i class="ph ' + loginIcon + '" style="font-size:1.8rem; color:#fff;"></i></div>';
         loginHTML += '<h2 class="login-title">' + loginType + ' Login</h2>';
         loginHTML += '<p class="login-subtitle">Enter your credentials to access the ' + loginType + ' Portal</p>';
+        loginHTML += '<div id="loginAlert" style="display:none; padding:0.75rem 1rem; border-radius:10px; font-size:0.85rem; margin-bottom:1.25rem; text-align:left;"></div>';
         loginHTML += '<form id="loginForm">';
         loginHTML += '<div class="form-group"><label>Email Address</label><input type="email" id="loginEmail" value="' + defaultEmail + '" placeholder="Enter your email" required></div>';
         loginHTML += '<div class="form-group"><label>Password</label><input type="password" id="loginPassword" value="' + defaultPass + '" placeholder="Enter your password" required></div>';
@@ -2020,29 +2021,57 @@ function render() {
 
         document.getElementById('loginBrandBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('backHomeBtn').onclick = function() { window.location.hash = 'home'; };
-        document.getElementById('forgotBtn').onclick = function() { alert('A password reset link has been sent to your registered email address.'); };
         document.getElementById('registerBtn').onclick = function() { window.location.hash = 'citizen-register'; };
         
+        document.getElementById('forgotBtn').onclick = function() {
+            var alertBox = document.getElementById('loginAlert');
+            if (alertBox) {
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#eff6ff';
+                alertBox.style.color = '#1e40af';
+                alertBox.style.border = '1px solid #bfdbfe';
+                alertBox.innerHTML = '<i class="fa-solid fa-circle-info" style="margin-right:6px; color:#2563eb;"></i> A password reset link has been sent to your registered email address.';
+            }
+        };
+
         document.getElementById('loginForm').onsubmit = async function(e) {
             e.preventDefault();
             var email = document.getElementById('loginEmail').value.trim();
             var password = document.getElementById('loginPassword').value.trim();
+            var alertBox = document.getElementById('loginAlert');
+
+            function showInlineError(msg) {
+                if (!alertBox) return;
+                alertBox.style.display = 'block';
+                alertBox.style.background = '#fff5f5';
+                alertBox.style.color = '#c53030';
+                alertBox.style.border = '1px solid #feb2b2';
+                alertBox.innerHTML = '<i class="fa-solid fa-circle-xmark" style="margin-right:6px; color:#dc2626;"></i> ' + msg;
+            }
+
+            if (alertBox) alertBox.style.display = 'none';
 
             if (!email || !password) {
-                alert('Please enter both email address and password.');
+                showInlineError('Please enter both email address and password.');
                 return;
             }
 
             if (loginTarget === 'citizen') {
-                var cleanCheck = email.trim().toLowerCase();
+                var cleanCheck = email.toLowerCase();
                 var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
+                
                 if (isRtoEmail) {
-                    alert('⚠️ Notice: ' + email + ' is an Official RTO Officer / System Administrator account.\n\nRedirecting to RTO Officer Portal Login...');
-                    window.location.hash = 'rto-login';
+                    showInlineError('These credentials are not valid for Citizen Login.');
                     return;
                 }
+
+                var submitBtn = document.getElementById('loginForm').querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
+                }
+
                 try {
-                    // Universal Citizen Authentication (Saves email & password in Supabase database)
                     var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);
                     
                     var citizenData = {
@@ -2057,7 +2086,11 @@ function render() {
                     sessionStorage.setItem('citizenSession', JSON.stringify(citizenData));
                     window.location.hash = 'citizen';
                 } catch (err) {
-                    alert('Citizen Login Error: ' + err.message);
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="ph ' + loginIcon + '"></i> Sign In';
+                    }
+                    showInlineError('Invalid email or password. Please check your credentials and try again.');
                 }
             } else {
                 // Search in RTO Accounts Directory or Supabase Admins
@@ -2126,7 +2159,7 @@ function render() {
                         window.location.hash = 'rto';
                     }
                 } else {
-                    alert('Invalid Admin / RTO credentials!\n\nSystem Administrator:\n  admin@drivesetu.com / admin123\n\nRTO Reviewing Officers:\n  annan@drivesetu.com / annan123\n  rahil@drivesetu.com / rahil123\n  srivathsav@drivesetu.com / srivathsav123');
+                    showInlineError('Invalid email or password. Please check your credentials and try again.');
                 }
             }
         };
