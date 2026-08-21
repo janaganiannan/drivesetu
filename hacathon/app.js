@@ -2012,7 +2012,6 @@ function render() {
         loginHTML += '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ' + loginIcon + '"></i> Sign In</button>';
         loginHTML += '</form>';
         loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have an account? <a href="#citizen-register" id="registerBtn">Register here</a></p></div>';
-        loginHTML += '<div style="text-align:center; margin-top:0.75rem;"><button type="button" class="btn btn-ghost" style="font-size:0.75rem; color:var(--text-muted);" onclick="resetDriveSetuPrototypeData()"><i class="fa-solid fa-rotate-left"></i> Reset Prototype Demo State</button></div>';
         loginHTML += '</div>';
         loginHTML += '<button class="btn btn-back" style="margin-top:1.25rem;" id="backHomeBtn"><i class="ph ph-arrow-left"></i> Back to Home</button>';
         loginHTML += '</div></div>';
