@@ -123,10 +123,22 @@ async function registerUser(email, password, fullName = '') {
         if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit') || error.status === 429) {
             const fallbackId = 'USER-' + Date.now();
             try {
+                await supabaseClient.from('citizens').upsert({
+                    id: fallbackId,
+                    email: cleanEmail,
+                    role: 'citizen',
+                    account_type: 'Citizen',
+                    full_name: cleanName,
+                    updated_at: new Date().toISOString()
+                });
+            } catch(cErr) {}
+
+            try {
                 await supabaseClient.from('profiles').upsert({
                     id: fallbackId,
                     email: cleanEmail,
                     role: 'user',
+                    account_type: 'Citizen',
                     full_name: cleanName,
                     updated_at: new Date().toISOString()
                 });
@@ -139,15 +151,30 @@ async function registerUser(email, password, fullName = '') {
         throw new Error("Registration failed. Please try again.");
     }
 
-    // Ensure profile entry exists linked to Auth user ID in Supabase profiles database table
+    // Ensure profile entry exists linked to Auth user ID in Supabase citizens & profiles tables
     if (data && data.user) {
-        await supabaseClient.from('profiles').upsert({
-            id: data.user.id,
-            email: cleanEmail,
-            role: ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : 'user',
-            full_name: cleanName,
-            updated_at: new Date().toISOString()
-        });
+        try {
+            await supabaseClient.from('citizens').upsert({
+                id: data.user.id,
+                email: cleanEmail,
+                role: 'citizen',
+                account_type: 'Citizen',
+                full_name: cleanName,
+                updated_at: new Date().toISOString()
+            });
+        } catch(cErr) {}
+
+        try {
+            await supabaseClient.from('profiles').upsert({
+                id: data.user.id,
+                email: cleanEmail,
+                role: ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : 'user',
+                account_type: 'Citizen',
+                full_name: cleanName,
+                updated_at: new Date().toISOString()
+            });
+        } catch(pErr) {}
+
         saveRegisteredAccount(cleanEmail, password, cleanName);
     }
 

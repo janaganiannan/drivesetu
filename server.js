@@ -67,15 +67,29 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ error: createError.message });
         }
 
-        // Ensure profile entry exists linked to Auth user ID
+        // Ensure citizen entry exists linked to Auth user ID in public.citizens & public.profiles
         if (newUser && newUser.user) {
-            await supabaseAdmin.from('profiles').upsert({
-                id: newUser.user.id,
-                email: cleanEmail,
-                role: 'user',
-                full_name: cleanName,
-                updated_at: new Date().toISOString()
-            });
+            try {
+                await supabaseAdmin.from('citizens').upsert({
+                    id: newUser.user.id,
+                    email: cleanEmail,
+                    role: 'citizen',
+                    account_type: 'Citizen',
+                    full_name: cleanName,
+                    updated_at: new Date().toISOString()
+                });
+            } catch (cErr) {}
+
+            try {
+                await supabaseAdmin.from('profiles').upsert({
+                    id: newUser.user.id,
+                    email: cleanEmail,
+                    role: 'user',
+                    account_type: 'Citizen',
+                    full_name: cleanName,
+                    updated_at: new Date().toISOString()
+                });
+            } catch (pErr) {}
         }
 
         return res.json({ success: true, user: newUser.user });
