@@ -1699,6 +1699,7 @@ function render() {
     var isTestCentre = hash === '#test-centre';
     var isVerifyEvidence = hash.indexOf('#verify-evidence') === 0;
     var isCitizenLogin = hash === '#citizen-login';
+    var isCitizenRegister = hash === '#citizen-register' || hash === '#register';
     var isRTOLogin = hash === '#rto-login';
     var isHome = hash === '#home' || hash === '';
 
@@ -1856,9 +1857,9 @@ function render() {
             '<i class="' + item.icon + '"></i> ' + item.label + badgeHtml + '</a>';
     }).join('');
 
-    // ── LOGIN PAGES (no sidebar layout) ──
-    if (isCitizenLogin || isRTOLogin) {
-        if (isCitizenLogin && _cs) {
+    // ── LOGIN & REGISTER PAGES (no sidebar layout) ──
+    if (isCitizenLogin || isRTOLogin || isCitizenRegister) {
+        if ((isCitizenLogin || isCitizenRegister) && _cs) {
             window.location.hash = 'citizen';
             render();
             return;
@@ -1868,10 +1869,124 @@ function render() {
             render();
             return;
         }
+
+        // ── CITIZEN REGISTRATION PAGE ──
+        if (isCitizenRegister) {
+            var regHTML = '';
+            regHTML += '<div class="login-page">';
+            regHTML += '<div class="login-container animate-in">';
+            regHTML += '<div class="login-header">';
+            regHTML += '<div class="login-brand" style="cursor:pointer;" id="registerBrandBtn">';
+            regHTML += '<div class="brand-icon" style="width:40px;height:40px;font-size:1.3rem;"><i class="ph ph-steering-wheel"></i></div>';
+            regHTML += '<span style="font-size:1.3rem;">DriveSetu</span>';
+            regHTML += '</div></div>';
+            regHTML += '<div class="login-card">';
+            regHTML += '<div class="login-avatar" style="background:var(--primary);"><i class="ph ph-user-plus" style="font-size:1.8rem; color:#fff;"></i></div>';
+            regHTML += '<h2 class="login-title">Citizen Registration</h2>';
+            regHTML += '<p class="login-subtitle">Create your new DriveSetu Citizen Account</p>';
+            regHTML += '<div id="registerAlert" style="display:none; padding:0.75rem; border-radius:6px; font-size:0.85rem; margin-bottom:1rem; text-align:left;"></div>';
+            regHTML += '<form id="registerForm">';
+            regHTML += '<div class="form-group"><label>Full Name</label><input type="text" id="registerFullName" placeholder="Enter your full name" required></div>';
+            regHTML += '<div class="form-group"><label>Email Address</label><input type="email" id="registerEmail" placeholder="Enter your email address" required></div>';
+            regHTML += '<div class="form-group"><label>Password</label><input type="password" id="registerPassword" placeholder="Create a password (min 6 characters)" required></div>';
+            regHTML += '<div class="form-group"><label>Confirm Password</label><input type="password" id="registerConfirmPassword" placeholder="Confirm your password" required></div>';
+            regHTML += '<button type="submit" class="btn btn-primary" id="submitRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ph-user-plus"></i> Create Account</button>';
+            regHTML += '</form>';
+            regHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Already have an account? <a href="#citizen-login" id="toLoginBtn">Sign in here</a></p></div>';
+            regHTML += '</div>';
+            regHTML += '<button class="btn btn-back" style="margin-top:1.25rem;" id="backHomeBtnReg"><i class="ph ph-arrow-left"></i> Back to Home</button>';
+            regHTML += '</div></div>';
+
+            appDiv.innerHTML = regHTML;
+
+            document.getElementById('registerBrandBtn').onclick = function() { window.location.hash = 'home'; };
+            document.getElementById('backHomeBtnReg').onclick = function() { window.location.hash = 'home'; };
+            document.getElementById('toLoginBtn').onclick = function() { window.location.hash = 'citizen-login'; };
+
+            document.getElementById('registerForm').onsubmit = async function(e) {
+                e.preventDefault();
+                var fullName = document.getElementById('registerFullName').value.trim();
+                var email = document.getElementById('registerEmail').value.trim();
+                var password = document.getElementById('registerPassword').value.trim();
+                var confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
+                var alertBox = document.getElementById('registerAlert');
+
+                function showError(msg) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fff5f5';
+                    alertBox.style.color = '#c53030';
+                    alertBox.style.border = '1px solid #feb2b2';
+                    alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + msg;
+                }
+
+                function showSuccess(msg) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#f0fff4';
+                    alertBox.style.color = '#276749';
+                    alertBox.style.border = '1px solid #9ae6b4';
+                    alertBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + msg;
+                }
+
+                if (!fullName || !email || !password || !confirmPassword) {
+                    showError('Please fill in all required fields.');
+                    return;
+                }
+
+                if (password.length < 6) {
+                    showError('Password must be at least 6 characters long.');
+                    return;
+                }
+
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match. Please re-enter your password.');
+                    return;
+                }
+
+                var cleanCheck = email.toLowerCase();
+                var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
+                if (isRtoEmail) {
+                    showError('⚠️ Registration Blocked: ' + email + ' is an Official RTO Officer account and cannot be registered as a citizen.');
+                    return;
+                }
+
+                var submitBtn = document.getElementById('submitRegisterBtn');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating Account...';
+
+                try {
+                    await DriveSetuSupabase.registerUser(email, password, fullName);
+                    showSuccess('Account registered successfully! Redirecting to Citizen Portal...');
+                    
+                    var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);
+                    var citizenData = {
+                        email: authResult.email,
+                        name: authResult.name || fullName || email.split('@')[0],
+                        appId: 'APP-' + Date.now().toString().slice(-6),
+                        licenceType: 'Permanent Licence',
+                        testDate: new Date().toLocaleDateString('en-IN'),
+                        initials: (authResult.name || fullName || email).slice(0, 2).toUpperCase()
+                    };
+
+                    sessionStorage.setItem('citizenSession', JSON.stringify(citizenData));
+
+                    setTimeout(function() {
+                        window.location.hash = 'citizen';
+                    }, 800);
+
+                } catch (err) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="ph ph-user-plus"></i> Create Account';
+                    showError(err.message || 'Account registration failed.');
+                }
+            };
+
+            return;
+        }
+
         var loginType = isCitizenLogin ? 'Citizen' : 'RTO Portal';
         var loginIcon = isCitizenLogin ? 'ph-user' : 'ph-shield-check';
         var loginTarget = isCitizenLogin ? 'citizen' : 'rto';
-        var loginColor = isCitizenLogin ? '#dc2626' : 'var(--primary-dark)';
+        var loginColor = isCitizenLogin ? 'var(--primary)' : 'var(--primary-dark)';
         var defaultEmail = isCitizenLogin ? '' : 'admin@drivesetu.com';
         var defaultPass = isCitizenLogin ? '' : 'admin123';
 
@@ -1897,7 +2012,7 @@ function render() {
         }
 
         var loginHTML = '';
-        loginHTML += '<div class="login-page ' + (isCitizenLogin ? 'citizen-login-red' : '') + '">';
+        loginHTML += '<div class="login-page">';
         loginHTML += '<div class="login-container animate-in">';
         loginHTML += '<div class="login-header">';
         loginHTML += '<div class="login-brand" style="cursor:pointer;" id="loginBrandBtn">';
@@ -1918,7 +2033,7 @@ function render() {
         loginHTML += '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ' + loginIcon + '"></i> Sign In</button>';
         loginHTML += '</form>';
         loginHTML += quickRoleSwitcherHTML;
-        loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have an account? <a href="javascript:void(0)" id="registerBtn">Register here</a></p></div>';
+        loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have an account? <a href="#citizen-register" id="registerBtn">Register here</a></p></div>';
         loginHTML += '<div style="text-align:center; margin-top:0.75rem;"><button type="button" class="btn btn-ghost" style="font-size:0.75rem; color:var(--text-muted);" onclick="resetDriveSetuPrototypeData()"><i class="fa-solid fa-rotate-left"></i> Reset Prototype Demo State</button></div>';
         loginHTML += '</div>';
         loginHTML += '<button class="btn btn-back" style="margin-top:1.25rem;" id="backHomeBtn"><i class="ph ph-arrow-left"></i> Back to Home</button>';
@@ -1929,30 +2044,7 @@ function render() {
         document.getElementById('loginBrandBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('backHomeBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('forgotBtn').onclick = function() { alert('A password reset link has been sent to your registered email address.'); };
-        document.getElementById('registerBtn').onclick = async function() {
-            var email = prompt('Enter your Citizen Email Address:');
-            if (!email || !email.trim()) return;
-
-            var cleanCheck = email.trim().toLowerCase();
-            var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
-            if (isRtoEmail) {
-                alert('⚠️ Registration Blocked: ' + email + ' is an Official RTO Officer / System Administrator account. Official RTO accounts cannot be registered as citizen accounts.');
-                return;
-            }
-
-            var password = prompt('Create your Password (min 6 characters):');
-            if (!password || !password.trim()) return;
-            var fullName = prompt('Enter your Full Name:', email.split('@')[0]);
-
-            try {
-                await DriveSetuSupabase.registerUser(email, password, fullName);
-                alert('✅ Registration successful for ' + email + '! Account saved in Supabase database.\n\nYou may now sign in with your password.');
-                document.getElementById('loginEmail').value = email.trim();
-                document.getElementById('loginPassword').value = password.trim();
-            } catch (err) {
-                alert('⚠️ Registration Error: ' + (err.message || 'Account registration failed.'));
-            }
-        };
+        document.getElementById('registerBtn').onclick = function() { window.location.hash = 'citizen-register'; };
         
         document.getElementById('loginForm').onsubmit = async function(e) {
             e.preventDefault();
@@ -2078,13 +2170,9 @@ function render() {
             }
         } else {
             pageContent = '' +
-                '<div class="home-hero animate-in">' +
+                '<div class="home-hero animate-in" style="padding: 2.75rem 2rem; margin-bottom: 2rem;">' +
                     '<h1>Transparent RTO Portal</h1>' +
-                    '<p>DriveSetu separates physical test conducting from independent evaluation. Complete integrity at every step.</p>' +
-                    '<div class="hero-btns">' +
-                        '<button class="btn btn-hero-white" onclick="window.location.hash=\'citizen-login\'"><i class="fa-solid fa-user"></i> Citizen Portal Login</button>' +
-                        '<button class="btn btn-hero-outline" onclick="window.location.hash=\'rto-login\'"><i class="fa-solid fa-user-shield"></i> RTO Official Portal Login</button>' +
-                    '</div>' +
+                    '<p style="margin-bottom:0;">DriveSetu separates physical test conducting from independent evaluation. Complete integrity at every step.</p>' +
                 '</div>' +
                 '<div class="stats-row animate-in" style="animation-delay:0.05s">' +
                     '<div class="stat-card"><div class="stat-icon"><i class="fa-solid fa-building-flag"></i></div><div><div class="stat-value" style="font-size:1.1rem;">4 RTOs</div><div class="stat-label">TG-03, TG-05, TG-08, TG-12</div></div></div>' +
@@ -2674,6 +2762,10 @@ function render() {
 
     var modalHTML = activeReviewModalAppId ? buildReviewModalHTML(activeReviewModalAppId) : '';
 
+    var searchBarHTML = (isHome && !isUserAuthenticated)
+        ? ''
+        : '<div class="search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search applications..."></div>';
+
     appDiv.innerHTML = '' +
         '<aside class="sidebar">' +
             '<div class="sidebar-brand"><div class="brand-icon"><i class="fa-solid fa-steering-wheel"></i></div><span>DriveSetu</span></div>' +
@@ -2688,7 +2780,7 @@ function render() {
             '<header class="top-header">' +
                 '<div class="header-left"><div class="page-title">' + pageTitle + '</div><div class="breadcrumb">' + breadcrumb + '</div></div>' +
                 '<div class="header-right">' +
-                    '<div class="search-bar"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search applications..."></div>' +
+                    searchBarHTML +
                     '<div class="header-icon-btn"><i class="fa-solid fa-bell"></i></div>' +
                     (userInfo
                         ? '<div class="user-chip"><div class="user-avatar">' + userInfo.initials + '</div><div><div class="user-chip-name">' + userInfo.name + '</div><div class="user-chip-role">' + userInfo.role + '</div></div></div>' + logoutBtnHTML
