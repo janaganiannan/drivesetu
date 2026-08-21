@@ -69,7 +69,7 @@ async function registerUser(email, password, fullName = '') {
             throw new Error("This email is already registered. Please sign in.");
         }
         saveRegisteredAccount(cleanEmail, password, cleanName);
-        return { user: { id: 'USER-' + Date.now(), email: cleanEmail } };
+        return { user: { id: 'USER-' + Date.now(), email: cleanEmail }, session: { access_token: 'local-token' } };
     }
     
     const { data, error } = await supabaseClient.auth.signUp({
@@ -83,7 +83,7 @@ async function registerUser(email, password, fullName = '') {
     if (error) {
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit') || error.status === 429) {
-            throw new Error("Registration emails are temporarily rate limited by the server. Please try again later or sign in if you already created an account.");
+            throw new Error("Registration emails are temporarily unavailable. Please try again later.");
         }
         if (msg.includes('already registered') || msg.includes('already in use') || msg.includes('user_already_exists')) {
             throw new Error("This email is already registered. Please sign in.");
@@ -92,7 +92,7 @@ async function registerUser(email, password, fullName = '') {
             throw new Error("Please enter a valid email address.");
         }
         if (msg.includes('password should be at least') || msg.includes('weak_password')) {
-            throw new Error("Password must be at least 6 characters long.");
+            throw new Error("Please choose a stronger password.");
         }
         throw new Error("Registration failed. Please try again.");
     }

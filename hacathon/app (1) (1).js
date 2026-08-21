@@ -1950,34 +1950,52 @@ function render() {
                 }
 
                 var submitBtn = document.getElementById('submitRegisterBtn');
+                if (submitBtn && submitBtn.disabled) return;
+                
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating Account...';
 
                 try {
-                    await DriveSetuSupabase.registerUser(email, password, fullName);
+                    var regResult = await DriveSetuSupabase.registerUser(email, password, fullName);
                     
-                    try {
-                        var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);
+                    if (regResult && regResult.session) {
                         showSuccess('Account registered successfully! Redirecting to Citizen Portal...');
                         var citizenData = {
-                            email: authResult.email,
-                            name: authResult.name || fullName || email.split('@')[0],
+                            email: email,
+                            name: fullName || email.split('@')[0],
                             appId: 'APP-' + Date.now().toString().slice(-6),
                             licenceType: 'Permanent Licence',
                             testDate: new Date().toLocaleDateString('en-IN'),
-                            initials: (authResult.name || fullName || email).slice(0, 2).toUpperCase()
+                            initials: (fullName || email).slice(0, 2).toUpperCase()
                         };
-
                         sessionStorage.setItem('citizenSession', JSON.stringify(citizenData));
-
                         setTimeout(function() {
                             window.location.hash = 'citizen';
                         }, 800);
-                    } catch (authErr) {
-                        showSuccess('Account registered successfully! Please check your email to confirm or proceed to Citizen Login.');
-                        setTimeout(function() {
-                            window.location.hash = 'citizen-login';
-                        }, 2500);
+                    } else {
+                        try {
+                            var authResult = await DriveSetuSupabase.authenticateCitizen(email, password);
+                            showSuccess('Account registered successfully! Redirecting to Citizen Portal...');
+                            var citizenData = {
+                                email: authResult.email,
+                                name: authResult.name || fullName || email.split('@')[0],
+                                appId: 'APP-' + Date.now().toString().slice(-6),
+                                licenceType: 'Permanent Licence',
+                                testDate: new Date().toLocaleDateString('en-IN'),
+                                initials: (authResult.name || fullName || email).slice(0, 2).toUpperCase()
+                            };
+
+                            sessionStorage.setItem('citizenSession', JSON.stringify(citizenData));
+
+                            setTimeout(function() {
+                                window.location.hash = 'citizen';
+                            }, 800);
+                        } catch (authErr) {
+                            showSuccess('Account registered successfully! Please check your email to confirm or proceed to Citizen Login.');
+                            setTimeout(function() {
+                                window.location.hash = 'citizen-login';
+                            }, 2500);
+                        }
                     }
 
                 } catch (err) {
@@ -1985,7 +2003,7 @@ function render() {
                     submitBtn.innerHTML = '<i class="ph ph-user-plus"></i> Create Account';
                     var errMsg = err.message || '';
                     if (errMsg.toLowerCase().includes('rate limit') || errMsg.toLowerCase().includes('over_email_send_rate_limit')) {
-                        showError('Registration emails are temporarily rate limited by the server. Please try again later or sign in if you already created an account.');
+                        showError('Registration emails are temporarily unavailable. Please try again later.');
                     } else {
                         showError(errMsg || 'Registration failed. Please try again.');
                     }
