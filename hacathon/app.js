@@ -1990,27 +1990,6 @@ function render() {
         var defaultEmail = isCitizenLogin ? '' : 'admin@drivesetu.com';
         var defaultPass = isCitizenLogin ? '' : 'admin123';
 
-        var quickRoleSwitcherHTML = '';
-        if (isRTOLogin) {
-            quickRoleSwitcherHTML = '<div style="margin-top:1.25rem; border-top:1px solid var(--border); padding-top:1rem;">' +
-                '<p style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:0.5rem;"><i class="fa-solid fa-bolt" style="color:var(--primary);"></i> Quick Prototype Role Switcher</p>' +
-                '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem;">' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'admin@drivesetu.com\', \'admin123\')">' +
-                        '<i class="fa-solid fa-shield-halved" style="color:#722ed1;"></i> System Admin' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'annan@drivesetu.com\', \'annan123\')">' +
-                        '<i class="fa-solid fa-user-shield" style="color:#096dd9;"></i> Officer Annan' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'rahil@drivesetu.com\', \'rahil123\')">' +
-                        '<i class="fa-solid fa-user-shield" style="color:#d46b08;"></i> Officer Rahil' +
-                    '</button>' +
-                    '<button type="button" class="btn btn-ghost" style="font-size:0.72rem; padding:0.4rem; justify-content:flex-start; text-align:left;" onclick="quickRtoLogin(\'srivathsav@drivesetu.com\', \'srivathsav123\')">' +
-                        '<i class="fa-solid fa-user-shield" style="color:#389e0d;"></i> Officer Srivathsav' +
-                    '</button>' +
-                '</div>' +
-            '</div>';
-        }
-
         var loginHTML = '';
         loginHTML += '<div class="login-page">';
         loginHTML += '<div class="login-container animate-in">';
@@ -2032,7 +2011,6 @@ function render() {
         loginHTML += '</div>';
         loginHTML += '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ' + loginIcon + '"></i> Sign In</button>';
         loginHTML += '</form>';
-        loginHTML += quickRoleSwitcherHTML;
         loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have an account? <a href="#citizen-register" id="registerBtn">Register here</a></p></div>';
         loginHTML += '<div style="text-align:center; margin-top:0.75rem;"><button type="button" class="btn btn-ghost" style="font-size:0.75rem; color:var(--text-muted);" onclick="resetDriveSetuPrototypeData()"><i class="fa-solid fa-rotate-left"></i> Reset Prototype Demo State</button></div>';
         loginHTML += '</div>';
