@@ -152,7 +152,7 @@ async function registerUser(email, password, fullName = '') {
             await supabaseClient.from('profiles').upsert({
                 id: data.user.id,
                 email: cleanEmail,
-                role: ADMIN_EMAILS.includes(cleanEmail) ? 'admin' : 'user',
+                role: ADMIN_EMAILS.includes(cleanEmail) ? 'SUPER_ADMIN' : 'CITIZEN',
                 account_type: 'Citizen',
                 full_name: cleanName,
                 updated_at: new Date().toISOString()

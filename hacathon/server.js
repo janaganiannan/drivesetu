@@ -51,46 +51,57 @@ app.post('/api/register', async (req, res) => {
         // Check if user already exists in auth.users
         const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
         const existing = (usersList?.users || []).find(u => u.email.toLowerCase() === cleanEmail);
+
+        let userId = null;
+        let userData = null;
+
         if (existing) {
-            return res.status(400).json({ error: 'This email is already registered. Please sign in.' });
-        }
-
-        // Create user with email_confirm: true (Bypasses SMTP Rate Limits 100%)
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-            email: cleanEmail,
-            password: password,
-            email_confirm: true,
-            user_metadata: { full_name: cleanName }
-        });
-
-        if (createError) {
-            return res.status(400).json({ error: createError.message });
+            userId = existing.id;
+            const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+                password: password,
+                email_confirm: true,
+                user_metadata: { full_name: cleanName }
+            });
+            if (updateError) {
+                return res.status(400).json({ error: updateError.message });
+            }
+            userData = updatedUser ? updatedUser.user : existing;
+        } else {
+            const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+                email: cleanEmail,
+                password: password,
+                email_confirm: true,
+                user_metadata: { full_name: cleanName }
+            });
+            if (createError) {
+                return res.status(400).json({ error: createError.message });
+            }
+            userData = newUser.user;
+            userId = newUser.user.id;
         }
 
         // Ensure citizen entry exists linked to Auth user ID in public.citizen_info & public.profiles
-        if (newUser && newUser.user) {
-            try {
-                await supabaseAdmin.from('citizen_info').upsert({
-                    user_id: newUser.user.id,
-                    full_name: cleanName,
-                    email: cleanEmail,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'user_id' });
-            } catch (cErr) {}
+        try {
+            await supabaseAdmin.from('citizen_info').upsert({
+                user_id: userId,
+                full_name: cleanName,
+                email: cleanEmail,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        } catch (cErr) {}
 
-            try {
-                await supabaseAdmin.from('profiles').upsert({
-                    id: newUser.user.id,
-                    email: cleanEmail,
-                    role: 'user',
-                    account_type: 'Citizen',
-                    full_name: cleanName,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-            } catch (pErr) {}
-        }
+        try {
+            await supabaseAdmin.from('profiles').upsert({
+                id: userId,
+                email: cleanEmail,
+                role: 'CITIZEN',
+                account_type: 'Citizen',
+                full_name: cleanName,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+        } catch (pErr) {}
 
-        return res.json({ success: true, user: newUser.user });
+        return res.json({ success: true, user: userData });
     } catch (err) {
         return res.status(500).json({ error: err.message || 'Server registration failed.' });
     }
