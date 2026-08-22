@@ -67,17 +67,15 @@ app.post('/api/register', async (req, res) => {
             return res.status(400).json({ error: createError.message });
         }
 
-        // Ensure citizen entry exists linked to Auth user ID in public.citizens & public.profiles
+        // Ensure citizen entry exists linked to Auth user ID in public.citizen_info & public.profiles
         if (newUser && newUser.user) {
             try {
-                await supabaseAdmin.from('citizens').upsert({
-                    id: newUser.user.id,
-                    email: cleanEmail,
-                    role: 'citizen',
-                    account_type: 'Citizen',
+                await supabaseAdmin.from('citizen_info').upsert({
+                    user_id: newUser.user.id,
                     full_name: cleanName,
+                    email: cleanEmail,
                     updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'user_id' });
             } catch (cErr) {}
 
             try {
@@ -88,7 +86,7 @@ app.post('/api/register', async (req, res) => {
                     account_type: 'Citizen',
                     full_name: cleanName,
                     updated_at: new Date().toISOString()
-                });
+                }, { onConflict: 'id' });
             } catch (pErr) {}
         }
 

@@ -137,17 +137,15 @@ async function registerUser(email, password, fullName = '') {
         throw new Error("Registration failed. Please try again.");
     }
 
-    // Ensure profile entry exists linked to Auth user ID in Supabase citizens & profiles tables
+    // Ensure profile entry exists linked to Auth user ID in Supabase citizen_info & profiles tables
     if (data && data.user) {
         try {
-            await supabaseClient.from('citizens').upsert({
-                id: data.user.id,
+            await supabaseClient.from('citizen_info').upsert({
+                user_id: data.user.id,
                 email: cleanEmail,
-                role: 'citizen',
-                account_type: 'Citizen',
                 full_name: cleanName,
                 updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'user_id' });
         } catch(cErr) {}
 
         try {
@@ -158,7 +156,7 @@ async function registerUser(email, password, fullName = '') {
                 account_type: 'Citizen',
                 full_name: cleanName,
                 updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'id' });
         } catch(pErr) {}
 
         saveRegisteredAccount(cleanEmail, password, cleanName);
