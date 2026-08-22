@@ -267,9 +267,9 @@ async function uploadUserFile(file, category = 'driving_test_video', customUserI
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
     const filePath = `${userId}/${fileName}`;
 
-    // 1. Upload file to Supabase Storage Bucket ('user-files')
+    // 1. Upload file to Supabase Storage Bucket ('citizen-documents')
     const { data: storageData, error: storageError } = await supabaseClient.storage
-        .from('user-files')
+        .from('citizen-documents')
         .upload(filePath, file, {
             cacheControl: '3600',
             upsert: true
@@ -280,29 +280,37 @@ async function uploadUserFile(file, category = 'driving_test_video', customUserI
         throw storageError;
     }
 
-    // 2. Get Public URL
+    // 2. Get Public URL or Storage Reference
     const { data: publicUrlData } = supabaseClient.storage
-        .from('user-files')
+        .from('citizen-documents')
         .getPublicUrl(filePath);
 
-    const publicUrl = publicUrlData.publicUrl;
+    const publicUrl = publicUrlData ? publicUrlData.publicUrl : filePath;
 
-    // 3. Store file metadata in Postgres table 'user_files'
+    // 3. Store file path reference in Postgres table 'citizen_documents'
     if (user) {
-        const { data: dbData, error: dbError } = await supabaseClient
-            .from('user_files')
-            .insert([{
-                user_id: user.id,
-                file_name: file.name,
-                file_path: filePath,
-                file_url: publicUrl,
-                file_type: file.type || (fileExt === 'pdf' ? 'application/pdf' : 'video/mp4'),
-                file_size: file.size,
-                category: category
-            }])
-            .select();
+        const updatePayload = {
+            user_id: user.id,
+            updated_at: new Date().toISOString()
+        };
 
-        if (!dbError && dbData) return dbData[0];
+        if (category === 'identity' || category === 'proof_identity') {
+            updatePayload.proof_identity_doc_path = filePath;
+        } else if (category === 'address' || category === 'proof_address') {
+            updatePayload.proof_address_doc_path = filePath;
+        } else if (category === 'medical' || category === 'medical_certificate') {
+            updatePayload.medical_certificate_doc_path = filePath;
+        } else if (category === 'video' || category === 'test_video') {
+            updatePayload.test_video_path = filePath;
+        } else if (category === 'aiReport' || category === 'ai_report') {
+            updatePayload.ai_report_path = filePath;
+        }
+
+        try {
+            await supabaseClient
+                .from('citizen_documents')
+                .upsert([updatePayload], { onConflict: 'user_id' });
+        } catch(dbErr) {}
     }
 
     return {
@@ -316,13 +324,13 @@ async function uploadUserFile(file, category = 'driving_test_video', customUserI
 }
 
 /**
- * Fetch files uploaded by current user (or all files if Admin)
+ * Fetch citizen documents uploaded by current user (or all documents if Admin)
  */
 async function fetchUserFiles() {
     if (!supabaseClient) return [];
 
     const { data, error } = await supabaseClient
-        .from('user_files')
+        .from('citizen_documents')
         .select('*')
         .order('created_at', { ascending: false });
 
