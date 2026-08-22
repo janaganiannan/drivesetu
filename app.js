@@ -4,65 +4,7 @@ function safeParseJSON(str, fallback) {
 }
 
 // ─── MOCK DATA ───
-var applications = [
-    {
-        id: 'APP-DEMO-001',
-        name: 'Demo Applicant',
-        type: 'Permanent Licence',
-        status: 'Pending RTO Review',
-        date: '13 Aug 2026',
-        citizenId: 'demo@drivesetu.com',
-        vehicleClasses: ['MCWG', 'LMV'],
-        evidenceStatus: 'LOCKED',
-        evidenceId: 'EV-DEMO-001',
-        integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        evaluationStatus: 'BOTH_PENDING',
-        evaluator1: { officerId: 'OFF-17', rtoCode: 'TG-08', name: 'Officer 17 (V. Reddy)', decision: null, reason: null },
-        evaluator2: { officerId: 'OFF-31', rtoCode: 'TG-12', name: 'Officer 31 (M. Sharma)', decision: null, reason: null },
-        serviceDetails: {
-            rtoCode: 'TG-03',
-            rtoOfficeName: 'RTA Medchal / Hyderabad West',
-            rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-            vehicleClasses: ['MCWG', 'LMV'],
-            vehicleClass: 'MCWG, LMV',
-            llNumber: 'LL-DEMO-001',
-            allocatedTestDate: '13 Aug 2026',
-            allocatedTestStartTime: '10:00 AM',
-            allocatedTestEndTime: '11:00 AM',
-            appointmentStatus: 'Test Completed & Evidence Locked'
-        },
-        testEvidence: {
-            applicationId: 'APP-DEMO-001',
-            videoId: 'VIDEO-DEMO-001',
-            telemetryId: 'TEL-DEMO-001',
-            reportId: 'REPORT-DEMO-001',
-            evidenceId: 'EV-DEMO-001',
-            integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-            testCentreRto: 'TG-03',
-            video: {
-                fileName: 'APP-DEMO-001_TestVideo.mp4',
-                fileSize: '28.4MB',
-                fileType: 'video/mp4',
-                timestamp: '2026-08-13T10:15:00Z',
-                dataUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-                status: 'Secured & Locked'
-            },
-            aiReport: {
-                fileName: 'APP-DEMO-001_AI_Report.pdf',
-                fileSize: '1.4MB',
-                fileType: 'application/pdf',
-                timestamp: '2026-08-13T10:16:30Z',
-                status: 'Secured & Locked'
-            },
-            locked: true
-        }
-    },
-    { id: 'LL-DEMO-001', name: 'Rahul Sharma', type: "Learner's Licence", status: 'Approved', date: '12 May 2026', citizenId: 'citizen@drivesetu.com', isPrototypeDemo: true, vehicleClasses: ['MCWG', 'LMV'] },
-    { id: 'APP-206500', name: 'Rahul Sharma', type: 'Permanent Licence', status: 'Submitted', date: '15 Aug 2026', citizenId: 'citizen@drivesetu.com', vehicleClasses: ['MCWG', 'LMV'] },
-    { id: 'APP-102', name: 'Priya Singh', type: 'Permanent Licence', status: 'Approved', date: '12 Jul 2026', citizenId: 'priya@drivesetu.com' },
-    { id: 'APP-103', name: 'Amit Kumar', type: 'Renewal', status: 'Pending', date: '14 Jul 2026', citizenId: 'amit@drivesetu.com' },
-    { id: 'APP-104', name: 'Sunita Devi', type: 'Duplicate', status: 'Approved', date: '15 Jul 2026', citizenId: 'sunita@drivesetu.com' },
-];
+var applications = [];
 
 // ─── CITIZEN USER ACCOUNTS ───
 // Dynamic citizen account store (authenticates directly with Supabase database)
@@ -75,15 +17,6 @@ var rtoAccounts = [
     { email: 'operator.tg05@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-05 Test Centre Operator', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'OP5' },
     { email: 'operator.tg08@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-08 Test Centre Operator', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'OP8' },
     { email: 'operator.tg12@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-12 Test Centre Operator', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'OP12' },
-
-    // RTO Reviewing Officers (Annan, Rahil, Srivathsav)
-    { email: 'annan@drivesetu.com', password: 'annan123', role: 'REVIEWING_OFFICER', officerId: 'OFF-ANNAN', name: 'Officer Annan', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'ANN' },
-    { email: 'rahil@drivesetu.com', password: 'rahil123', role: 'REVIEWING_OFFICER', officerId: 'OFF-RAHIL', name: 'Officer Rahil', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'RAH' },
-    { email: 'srivathsav@drivesetu.com', password: 'srivathsav123', role: 'REVIEWING_OFFICER', officerId: 'OFF-SRIVATHSAV', name: 'Officer Srivathsav', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'SRI' },
-    { email: 'officer01.tg03@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-01', name: 'Officer 01 (K. Rao)', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'O01' },
-    { email: 'officer09.tg05@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-09', name: 'Officer 09 (S. Verma)', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'O09' },
-    { email: 'officer17.tg08@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-17', name: 'Officer 17 (V. Reddy)', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'O17' },
-    { email: 'officer31.tg12@drivesetu.com', password: 'officer123', role: 'REVIEWING_OFFICER', officerId: 'OFF-31', name: 'Officer 31 (M. Sharma)', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'O31' },
 
     // System / Administrative Authority
     { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'System Administrator', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
@@ -124,18 +57,23 @@ function allocateIndependentOfficer(testRtoCode, excludeOfficerIds) {
 function getAuditLog() {
     var saved = localStorage.getItem('drivesetu_audit_log');
     if (saved) { try { return JSON.parse(saved); } catch(e) {} }
-    var initialLog = [
-        { id: 'AE-1001', timestampReadable: '13/08/2026, 09:00:00 AM', appId: 'APP-DEMO-001', eventType: 'APPLICATION_SUBMITTED', actor: 'Demo Applicant', role: 'CITIZEN', details: 'Permanent Driving Licence application submitted.', hash: 'sha256:a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef' },
-        { id: 'AE-1002', timestampReadable: '13/08/2026, 10:00:00 AM', appId: 'APP-DEMO-001', eventType: 'IDENTITY_VERIFIED', actor: 'TG-03 Test Operator', role: 'TEST_CENTRE_OPERATOR', details: 'Face & Biometric identity matched (Prototype Simulation).', hash: 'sha256:b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef1' },
-        { id: 'AE-1003', timestampReadable: '13/08/2026, 10:05:00 AM', appId: 'APP-DEMO-001', eventType: 'TEST_CONDUCTED', actor: 'TG-03 Test Operator', role: 'TEST_CENTRE_OPERATOR', details: 'Physical driving test conducted on automated track at TG-03.', hash: 'sha256:c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef12' },
-        { id: 'AE-1004', timestampReadable: '13/08/2026, 10:15:00 AM', appId: 'APP-DEMO-001', eventType: 'EVIDENCE_LOCKED', actor: 'TG-03 Test Operator', role: 'TEST_CENTRE_OPERATOR', details: 'Evidence Package locked (EV-DEMO-001) with SHA-256 hash.', hash: 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' },
-        { id: 'AE-1005', timestampReadable: '13/08/2026, 10:16:30 AM', appId: 'APP-DEMO-001', eventType: 'AI_REPORT_GENERATED', actor: 'AI System', role: 'SYSTEM_AI', details: 'AI telemetry report generated. Telemetry Score: 95/100 (RECOMMEND PASS).', hash: 'sha256:d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef123' },
-        { id: 'AE-1006', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Independent evaluator automatically allocated through cross-RTO assignment.', hash: 'sha256:e5f678901234567890abcdef1234567890abcdef1234567890abcdef1234' },
-        { id: 'AE-1007', timestampReadable: '13/08/2026, 10:17:00 AM', appId: 'APP-DEMO-001', eventType: 'EVALUATOR_ALLOCATED', actor: 'System Engine', role: 'SYSTEM', details: 'Independent evaluator automatically allocated through cross-RTO assignment.', hash: 'sha256:f678901234567890abcdef1234567890abcdef1234567890abcdef12345' }
-    ];
+    var initialLog = [];
     try { localStorage.setItem('drivesetu_audit_log', JSON.stringify(initialLog)); } catch(e) {}
     return initialLog;
 }
+
+// Automatic localStorage sanitizer for active sessions
+(function sanitizeStoredDataOnLoad() {
+    try {
+        // Clear any old mock applications from localStorage to ensure clean state
+        var rawApps = localStorage.getItem('drivesetu_applications');
+        if (rawApps && (rawApps.indexOf('APP-DEMO-001') !== -1 || rawApps.indexOf('LL-SUFYAN-001') !== -1 || rawApps.indexOf('APP-206500') !== -1)) {
+            localStorage.removeItem('drivesetu_applications');
+            localStorage.removeItem('drivesetu_audit_log');
+            localStorage.removeItem('drivesetu_pending_reviews');
+        }
+    } catch(e) {}
+})();
 
 // Automatic localStorage sanitizer for active sessions
 (function sanitizeStoredDataOnLoad() {
@@ -615,7 +553,88 @@ function renderAdminDashboard() {
         '</div>' +
     '</div>';
 
-    return flowHTML + statsRow1 + statsRow2 + evalMonitorHTML + sysActivityHTML + auditHTML;
+    // Pending RTO Registration Requests Section (Admin Approval Queue)
+    var pendingReqs = [];
+    try {
+        var rawLocal = localStorage.getItem('drivesetu_pending_rto_requests');
+        pendingReqs = rawLocal ? JSON.parse(rawLocal) : [];
+    } catch(e) { pendingReqs = []; }
+
+    var pendingReqRows = (pendingReqs || []).map(function(req) {
+        var statusBadge = '';
+        if (req.status === 'Approved') {
+            statusBadge = '<span class="badge" style="background:#f0fff4; color:#276749; border:1px solid #9ae6b4;"><i class="fa-solid fa-check"></i> Approved</span>';
+        } else if (req.status === 'Rejected') {
+            statusBadge = '<span class="badge" style="background:#fff5f5; color:#c53030; border:1px solid #feb2b2;"><i class="fa-solid fa-xmark"></i> Rejected</span>';
+        } else {
+            statusBadge = '<span class="badge" style="background:#fffbe6; color:#b7791f; border:1px solid #ffe58f;"><i class="fa-solid fa-clock"></i> Pending Approval</span>';
+        }
+
+        var roleBadge = '<span class="badge" style="background:#eef2ff; color:#3730a3; border:1px solid #c7d2fe; font-weight:600;">' + (req.role || 'REVIEWING_OFFICER') + '</span>';
+
+        var actionBtns = '';
+        if (req.status === 'Pending') {
+            actionBtns = '<button class="btn btn-primary" style="padding:0.35rem 0.7rem; font-size:0.75rem; background:#16a34a; margin-right:0.35rem; border:none;" onclick="adminApproveRtoReq(\'' + (req.id || '') + '\', \'' + (req.email || '') + '\')"><i class="fa-solid fa-user-check"></i> Accept</button>' +
+                         '<button class="btn btn-secondary" style="padding:0.35rem 0.7rem; font-size:0.75rem; background:#dc2626; color:#fff; border:none;" onclick="adminRejectRtoReq(\'' + (req.id || '') + '\', \'' + (req.email || '') + '\')"><i class="fa-solid fa-user-xmark"></i> Reject</button>';
+        } else {
+            actionBtns = '<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">Action Finalized</span>';
+        }
+
+        return '<tr>' +
+            '<td><strong>' + (req.full_name || req.name || 'RTO Officer') + '</strong></td>' +
+            '<td>' + req.email + '</td>' +
+            '<td>' + roleBadge + '</td>' +
+            '<td>' + (req.rto_code || 'TG-03') + ' (' + (req.rto_name || 'RTO') + ')</td>' +
+            '<td>' + (req.officer_id || req.employee_id || 'OFF-01') + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+            '<td>' + actionBtns + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var pendingCount = (pendingReqs || []).filter(function(r) { return r.status === 'Pending'; }).length;
+
+    var pendingReqsHTML = '<div class="card animate-in" style="margin-bottom:1.25rem; border:1px solid #a7f3d0; background:linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);">' +
+        '<div class="card-title flex-between">' +
+            '<span><i class="fa-solid fa-user-clock" style="color:#059669; margin-right:0.4rem;"></i> Pending RTO Employee Registrations (Portal Admin Approval Queue)</span>' +
+            '<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-weight:700;">' + pendingCount + ' Pending Requests</span>' +
+        '</div>' +
+        '<div style="overflow-x:auto;">' +
+            '<table class="data-table"><thead><tr>' +
+                '<th>Applicant Name</th><th>Email Address</th><th>Requested Role</th><th>RTO Jurisdiction</th><th>Officer ID</th><th>Status</th><th>Portal Admin Action</th>' +
+            '</tr></thead><tbody>' +
+                (pendingReqRows || '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No pending RTO employee registration requests at this time.</td></tr>') +
+            '</tbody></table>' +
+        '</div>' +
+    '</div>';
+
+    return flowHTML + statsRow1 + statsRow2 + pendingReqsHTML + evalMonitorHTML + sysActivityHTML + auditHTML;
+}
+
+// Global Portal Admin approval action handlers
+async function adminApproveRtoReq(requestId, email) {
+    if (!confirm('Approve registration request for email ' + email + '?')) return;
+    try {
+        if (typeof DriveSetuSupabase !== 'undefined' && DriveSetuSupabase.approveRTORegistrationRequest) {
+            await DriveSetuSupabase.approveRTORegistrationRequest(requestId, email);
+        }
+        alert('✓ RTO Registration Request Approved! Account is now active.');
+        render();
+    } catch(err) {
+        alert('Approval error: ' + (err.message || 'Failed to approve request.'));
+    }
+}
+
+async function adminRejectRtoReq(requestId, email) {
+    if (!confirm('Reject registration request for email ' + email + '?')) return;
+    try {
+        if (typeof DriveSetuSupabase !== 'undefined' && DriveSetuSupabase.rejectRTORegistrationRequest) {
+            await DriveSetuSupabase.rejectRTORegistrationRequest(requestId, email);
+        }
+        alert('RTO Registration Request Rejected.');
+        render();
+    } catch(err) {
+        alert('Rejection error: ' + (err.message || 'Failed to reject request.'));
+    }
 }
 
 // ─── SHARED PERSISTENCE HELPERS (citizen uploads ↔ RTO admin) ───
@@ -624,32 +643,7 @@ function getStoredReviews() {
     if (saved) {
         try { return JSON.parse(saved); } catch(e) {}
     }
-    var defaults = [
-        {
-            appId: 'APP-DEMO-001',
-            candidateName: 'Demo Applicant',
-            licenceType: 'Permanent Licence',
-            mp4Name: 'APP-DEMO-001_TestVideo.mp4 (28.4MB)',
-            pdfName: 'APP-DEMO-001_AI_Report.pdf (1.4MB)',
-            notes: 'Driving test completed at TG-03. Evidence locked (EV-DEMO-001). Allocated via Cross-RTO Evaluation Engine.',
-            submittedOn: '13 Aug 2026',
-            status: 'Pending Review',
-            reviewedBy: null
-        },
-        {
-            appId: 'APP-102',
-            candidateName: 'Priya Singh',
-            licenceType: 'Permanent Licence',
-            mp4Name: 'APP-102_TestVideo.mp4 (28.1MB)',
-            pdfName: 'APP-102_AI_Report.pdf (1.6MB)',
-            notes: 'AI Track Test passed 98% clean',
-            submittedOn: '12 Jul 2026',
-            status: 'Approved',
-            reviewedBy: 'Dual Independent Consensus'
-        }
-    ];
-    localStorage.setItem('drivesetu_pending_reviews', JSON.stringify(defaults));
-    return defaults;
+    return [];
 }
 
 function saveStoredReviews(reviews) {
@@ -673,284 +667,6 @@ function getStoredApplications() {
     var apps = [];
     if (saved) {
         try { apps = JSON.parse(saved); } catch(e) {}
-    }
-    if (!apps || apps.length === 0) {
-        apps = [
-            {
-                id: 'APP-DEMO-001',
-                name: 'Demo Applicant',
-                type: 'Permanent Licence',
-                status: 'Pending RTO Review',
-                date: '13 Aug 2026',
-                citizenId: 'demo@drivesetu.com',
-                vehicleClasses: ['MCWG', 'LMV'],
-                evidenceStatus: 'LOCKED',
-                evidenceId: 'EV-DEMO-001',
-                integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                evaluationStatus: 'BOTH_PENDING',
-                evaluator1: { officerId: 'OFF-17', rtoCode: 'TG-08', name: 'Officer 17 (V. Reddy)', decision: null, reason: null },
-                evaluator2: { officerId: 'OFF-31', rtoCode: 'TG-12', name: 'Officer 31 (M. Sharma)', decision: null, reason: null },
-                serviceDetails: {
-                    rtoCode: 'TG-03',
-                    rtoOfficeName: 'RTA Medchal / Hyderabad West',
-                    rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-                    vehicleClasses: ['MCWG', 'LMV'],
-                    vehicleClass: 'MCWG, LMV',
-                    llNumber: 'LL-DEMO-001',
-                    allocatedTestDate: '13 Aug 2026',
-                    allocatedTestStartTime: '10:00 AM',
-                    allocatedTestEndTime: '11:00 AM',
-                    appointmentStatus: 'Test Completed & Evidence Locked'
-                },
-                testEvidence: {
-                    applicationId: 'APP-DEMO-001',
-                    videoId: 'VIDEO-DEMO-001',
-                    telemetryId: 'TEL-DEMO-001',
-                    reportId: 'REPORT-DEMO-001',
-                    evidenceId: 'EV-DEMO-001',
-                    integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-                    testCentreRto: 'TG-03',
-                    video: {
-                        fileName: 'APP-DEMO-001_TestVideo.mp4',
-                        fileSize: '28.4MB',
-                        fileType: 'video/mp4',
-                        timestamp: '2026-08-13T10:15:00Z',
-                        dataUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-                        status: 'Secured & Locked'
-                    },
-                    aiReport: {
-                        fileName: 'APP-DEMO-001_AI_Report.pdf',
-                        fileSize: '1.4MB',
-                        fileType: 'application/pdf',
-                        timestamp: '2026-08-13T10:16:30Z',
-                        status: 'Secured & Locked'
-                    },
-                    locked: true
-                }
-            },
-            {
-                id: 'LL-DEMO-001',
-                name: 'Rahul Sharma',
-                type: "Learner's Licence",
-                status: 'Approved',
-                date: '12 May 2026',
-                citizenId: 'citizen@drivesetu.com',
-                isPrototypeDemo: true,
-                vehicleClasses: ['MCWG', 'LMV'],
-                serviceDetails: {
-                    rtoCode: 'TG-09',
-                    rtoOfficeName: 'RTA Hyderabad Central (Khairatabad)',
-                    rtoAddress: 'RTA Office Khairatabad, Hyderabad',
-                    vehicleClasses: ['MCWG', 'LMV'],
-                    vehicleClass: 'MCWG, LMV',
-                    llNumber: 'LL-DEMO-001',
-                    issueDate: '12 May 2026',
-                    validity: '12 May 2026 to 12 Nov 2026'
-                }
-            },
-            {
-                id: 'APP-206500',
-                name: 'Rahul Sharma',
-                type: 'Permanent Licence',
-                status: 'Submitted',
-                date: '15 Aug 2026',
-                citizenId: 'citizen@drivesetu.com',
-                vehicleClasses: ['MCWG', 'LMV'],
-                serviceDetails: {
-                    rtoCode: 'TG-03',
-                    rtoOfficeName: 'RTA Medchal / Hyderabad West',
-                    rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-                    vehicleClasses: ['MCWG', 'LMV'],
-                    vehicleClass: 'MCWG, LMV',
-                    llNumber: 'LL-DEMO-001',
-                    allocatedTestDate: '15 Aug 2026',
-                    allocatedTestStartTime: '11:00 AM',
-                    allocatedTestEndTime: '12:00 PM',
-                    appointmentStatus: 'Scheduled'
-                }
-            },
-            {
-                id: 'APP-102',
-                name: 'Priya Singh',
-                type: 'Permanent Licence',
-                status: 'Approved',
-                date: '12 Jul 2026',
-                citizenId: 'priya@drivesetu.com',
-                serviceDetails: { rtoCode: 'TG-05', rtoOfficeName: 'RTA Secunderabad / Hyderabad North' },
-                testEvidence: {
-                    applicationId: 'APP-102',
-                    videoId: 'VIDEO-APP-102',
-                    telemetryId: 'TEL-APP-102',
-                    reportId: 'REPORT-APP-102',
-                    evidenceId: 'EV-APP-102',
-                    integrityHash: 'a7b8c9d0e1f234567890abcdef1234567890abcdef1234567890abcdef123456',
-                    testCentreRto: 'TG-05',
-                    video: {
-                        fileName: 'APP-102_TestVideo.mp4',
-                        fileSize: '28.1MB',
-                        fileType: 'video/mp4',
-                        timestamp: '2026-07-12T14:30:00Z',
-                        dataUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-                        status: 'Secured & Locked'
-                    },
-                    aiReport: {
-                        fileName: 'APP-102_AI_Report.pdf',
-                        fileSize: '1.5MB',
-                        fileType: 'application/pdf',
-                        timestamp: '2026-07-12T14:32:00Z',
-                        status: 'Secured & Locked'
-                    },
-                    locked: true
-                }
-            },
-            { id: 'APP-103', name: 'Amit Kumar', type: 'Renewal', status: 'Pending', date: '14 Jul 2026', citizenId: 'amit@drivesetu.com' },
-            { id: 'APP-104', name: 'Sunita Devi', type: 'Duplicate', status: 'Approved', date: '15 Jul 2026', citizenId: 'sunita@drivesetu.com' },
-        ];
-    }
-
-    var modified = false;
-    // Sanitize: Purge duplicate APP-101 Learner's Licence record for Rahul Sharma
-    var cleanedApps = [];
-    for (var ci = 0; ci < apps.length; ci++) {
-        if (apps[ci].id === 'APP-101' && apps[ci].type === "Learner's Licence" && (apps[ci].citizenId === 'citizen@drivesetu.com' || apps[ci].name === 'Rahul Sharma')) {
-            modified = true;
-            continue;
-        }
-        cleanedApps.push(apps[ci]);
-    }
-    apps = cleanedApps;
-    var hasLlDemo001 = false;
-    var hasApp206500 = false;
-    for (var a = 0; a < apps.length; a++) {
-        if (apps[a].id === 'LL-DEMO-001') { hasLlDemo001 = true; }
-        if (apps[a].id === 'APP-206500') { hasApp206500 = true; }
-    }
-    if (!hasLlDemo001) {
-        apps.unshift({
-            id: 'LL-DEMO-001',
-            name: 'Rahul Sharma',
-            type: "Learner's Licence",
-            status: 'Approved',
-            date: '12 May 2026',
-            citizenId: 'citizen@drivesetu.com',
-            isPrototypeDemo: true,
-            vehicleClasses: ['MCWG', 'LMV'],
-            serviceDetails: {
-                rtoCode: 'TG-09',
-                rtoOfficeName: 'RTA Hyderabad Central (Khairatabad)',
-                rtoAddress: 'RTA Office Khairatabad, Hyderabad',
-                vehicleClasses: ['MCWG', 'LMV'],
-                vehicleClass: 'MCWG, LMV',
-                llNumber: 'LL-DEMO-001',
-                issueDate: '12 May 2026',
-                validity: '12 May 2026 to 12 Nov 2026'
-            }
-        });
-        modified = true;
-    }
-    if (!hasApp206500) {
-        apps.push({
-            id: 'APP-206500',
-            name: 'Rahul Sharma',
-            type: 'Permanent Licence',
-            status: 'Submitted',
-            date: '15 Aug 2026',
-            citizenId: 'citizen@drivesetu.com',
-            vehicleClasses: ['MCWG', 'LMV'],
-            serviceDetails: {
-                rtoCode: 'TG-03',
-                rtoOfficeName: 'RTA Medchal / Hyderabad West',
-                rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-                vehicleClasses: ['MCWG', 'LMV'],
-                vehicleClass: 'MCWG, LMV',
-                llNumber: 'LL-DEMO-001',
-                allocatedTestDate: '15 Aug 2026',
-                allocatedTestStartTime: '11:00 AM',
-                allocatedTestEndTime: '12:00 PM',
-                appointmentStatus: 'Scheduled'
-            }
-        });
-        modified = true;
-    }
-    // Ensure ALL of Sufyan's applications (e.g. APP-801439, LL-SUFYAN-001) are marked as 1 Month Old (14 Jul 2026) with Driving Test Date as Current Respective Day
-    var todayFormatted = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    var oneMonthAgoStr = '14 Jul 2026';
-    var hasSufyanLL = false;
-
-    for (var s = 0; s < apps.length; s++) {
-        var _appS = apps[s];
-        var isSufyanMatch = ((_appS.citizenId && _appS.citizenId.toLowerCase().includes('sufyan')) || (_appS.name && _appS.name.toLowerCase().includes('sufyan')) || _appS.id === 'LL-SUFYAN-001' || _appS.id === 'APP-801439');
-        if (isSufyanMatch) {
-            hasSufyanLL = true;
-            _appS.type = "Learner's Licence";
-            _appS.status = 'Approved';
-            _appS.date = oneMonthAgoStr;
-            if (!_appS.serviceDetails) _appS.serviceDetails = {};
-            _appS.serviceDetails.issueDate = oneMonthAgoStr;
-            _appS.serviceDetails.validity = oneMonthAgoStr + ' to 14 Jan 2027';
-            _appS.serviceDetails.llNumber = _appS.id || 'LL-SUFYAN-001';
-            _appS.serviceDetails.allocatedTestDate = todayFormatted;
-            _appS.serviceDetails.testDate = todayFormatted;
-            _appS.serviceDetails.appointmentStatus = 'Completed';
-            modified = true;
-        }
-    }
-
-    if (!hasSufyanLL) {
-        apps.unshift({
-            id: 'LL-SUFYAN-001',
-            name: 'Sufyan',
-            type: "Learner's Licence",
-            status: 'Approved',
-            date: oneMonthAgoStr,
-            citizenId: 'sufyan@gmail.com',
-            vehicleClasses: ['MCWG', 'LMV'],
-            serviceDetails: {
-                rtoCode: 'TG-03',
-                rtoOfficeName: 'RTA Medchal / Hyderabad West',
-                rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-                vehicleClasses: ['MCWG', 'LMV'],
-                vehicleClass: 'MCWG, LMV',
-                llNumber: 'LL-SUFYAN-001',
-                issueDate: oneMonthAgoStr,
-                validity: oneMonthAgoStr + ' to 14 Jan 2027',
-                allocatedTestDate: todayFormatted,
-                testDate: todayFormatted,
-                appointmentStatus: 'Completed'
-            }
-        });
-        modified = true;
-    }
-
-    for (var d = 0; d < apps.length; d++) {
-        if (apps[d].id === 'APP-101' && apps[d].type === "Learner's Licence") {
-            if (!apps[d].citizenId) { apps[d].citizenId = 'citizen@drivesetu.com'; modified = true; }
-        }
-    }
-    if (modified) {
-        saveStoredApplications(apps);
-    }
-
-    // Cross-sync status with stored RTO reviews
-    var savedReviews = localStorage.getItem('drivesetu_pending_reviews');
-    if (savedReviews) {
-        try {
-            var reviews = JSON.parse(savedReviews);
-            for (var i = 0; i < apps.length; i++) {
-                for (var r = 0; r < reviews.length; r++) {
-                    if (reviews[r].appId === apps[i].id && (reviews[r].status === 'Approved' || reviews[r].status === 'Rejected')) {
-                        if (apps[i].id === 'APP-101' && apps[i].type === "Learner's Licence" && reviews[r].status === 'Approved' && !reviews[r].llrPassed) {
-                            reviews[r].status = 'Pending Review';
-                            localStorage.setItem('drivesetu_pending_reviews', JSON.stringify(reviews));
-                        } else {
-                            if (apps[i].status !== 'SECOND INDEPENDENT REVIEW REQUIRED') {
-                                apps[i].status = reviews[r].status;
-                            }
-                        }
-                    }
-                }
-            }
-        } catch(e) {}
     }
     applications = apps;
     return apps;
@@ -1871,27 +1587,61 @@ function render() {
         }
 
         // ── CITIZEN REGISTRATION PAGE ──
+        // ── REGISTRATION PAGE (CITIZEN & RTO OFFICER ONBOARDING) ──
         if (isCitizenRegister) {
             var regHTML = '';
             regHTML += '<div class="login-page">';
-            regHTML += '<div class="login-container animate-in">';
+            regHTML += '<div class="login-container animate-in" style="max-width:580px;">';
             regHTML += '<div class="login-header">';
             regHTML += '<div class="login-brand" style="cursor:pointer;" id="registerBrandBtn">';
             regHTML += '<div class="brand-icon" style="width:40px;height:40px;font-size:1.3rem;"><i class="ph ph-steering-wheel"></i></div>';
             regHTML += '<span style="font-size:1.3rem;">DriveSetu</span>';
             regHTML += '</div></div>';
             regHTML += '<div class="login-card">';
-            regHTML += '<div class="login-avatar" style="background:var(--primary);"><i class="ph ph-user-plus" style="font-size:1.8rem; color:#fff;"></i></div>';
-            regHTML += '<h2 class="login-title">Citizen Registration</h2>';
-            regHTML += '<p class="login-subtitle">Create your new DriveSetu Citizen Account</p>';
+            
+            // Tab Switcher for Account Type
+            regHTML += '<div style="display:flex; border-bottom:2px solid #edf2f7; margin-bottom:1.25rem;">';
+            regHTML += '<button type="button" id="tabCitizenBtn" onclick="switchRegTab(\'citizen\')" style="flex:1; padding:0.75rem; border:none; background:none; font-weight:700; font-size:0.95rem; color:var(--primary); border-bottom:3px solid var(--primary); cursor:pointer;"><i class="ph ph-user"></i> Citizen Registration</button>';
+            regHTML += '<button type="button" id="tabOfficerBtn" onclick="switchRegTab(\'officer\')" style="flex:1; padding:0.75rem; border:none; background:none; font-weight:700; font-size:0.95rem; color:var(--text-muted); border-bottom:3px solid transparent; cursor:pointer;"><i class="fa-solid fa-building-flag"></i> RTO Officer Registration</button>';
+            regHTML += '</div>';
+
             regHTML += '<div id="registerAlert" style="display:none; padding:0.75rem; border-radius:6px; font-size:0.85rem; margin-bottom:1rem; text-align:left;"></div>';
-            regHTML += '<form id="registerForm">';
-            regHTML += '<div class="form-group"><label>Full Name</label><input type="text" id="registerFullName" placeholder="Enter your full name" required></div>';
-            regHTML += '<div class="form-group"><label>Email Address</label><input type="email" id="registerEmail" placeholder="Enter your email address" required></div>';
-            regHTML += '<div class="form-group"><label>Password</label><input type="password" id="registerPassword" placeholder="Create a password (min 6 characters)" required></div>';
-            regHTML += '<div class="form-group"><label>Confirm Password</label><input type="password" id="registerConfirmPassword" placeholder="Confirm your password" required></div>';
-            regHTML += '<button type="submit" class="btn btn-primary" id="submitRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ph-user-plus"></i> Create Account</button>';
+
+            // FORM 1: CITIZEN FORM
+            regHTML += '<form id="registerForm" style="display:block;">';
+            regHTML += '<p class="login-subtitle" style="margin-bottom:1rem;">Create a new Citizen Account to apply for & track driving licences</p>';
+            regHTML += '<div class="form-group"><label>Full Name *</label><input type="text" id="registerFullName" placeholder="Enter your full name" required></div>';
+            regHTML += '<div class="form-group"><label>Email Address *</label><input type="email" id="registerEmail" placeholder="Enter your email address" required></div>';
+            regHTML += '<div class="form-group"><label>Password *</label><input type="password" id="registerPassword" placeholder="Create a password (min 6 characters)" required minlength="6"></div>';
+            regHTML += '<div class="form-group"><label>Confirm Password *</label><input type="password" id="registerConfirmPassword" placeholder="Confirm your password" required minlength="6"></div>';
+            regHTML += '<button type="submit" class="btn btn-primary" id="submitRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ph-user-plus"></i> Create Citizen Account</button>';
             regHTML += '</form>';
+
+            // FORM 2: RTO OFFICER FORM
+            regHTML += '<form id="registerOfficerForm" style="display:none;">';
+            regHTML += '<p class="login-subtitle" style="margin-bottom:1rem;">Register for an RTO Portal Account (Requires Portal Admin Approval)</p>';
+            regHTML += '<div class="form-group"><label>Officer Full Name *</label><input type="text" id="offName" placeholder="e.g. Officer K. Rao" required></div>';
+            regHTML += '<div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label" style="font-weight:600;">Requested RTO Role *</label>';
+            regHTML += '<select id="offRole" class="form-control" style="background:#f8fafc; font-weight:500;" required>';
+            regHTML += '<option value="REVIEWING_OFFICER">RTO Reviewing Officer / Evaluator</option>';
+            regHTML += '<option value="TEST_INSPECTOR">Driving Test Inspector</option>';
+            regHTML += '<option value="TEST_CENTRE_OPERATOR">Test Centre Operator</option>';
+            regHTML += '<option value="RTO_EMPLOYEE">RTO Assistant / Executive</option>';
+            regHTML += '<option value="SUPER_ADMIN">Super Administrator / Portal Admin</option>';
+            regHTML += '</select></div>';
+            regHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">';
+            regHTML += '<div><label class="form-label">RTO Number / Code *</label><select id="offRtoCode" class="form-control" required><option value="TG-03">TG-03 (Medchal / Hyd West)</option><option value="TG-05">TG-05 (Secunderabad / Hyd North)</option><option value="TG-08">TG-08 (Uppal / Rangareddy)</option><option value="TG-12">TG-12 (Sangareddy)</option></select></div>';
+            regHTML += '<div><label class="form-label">Officer ID No *</label><input type="text" id="offIdNo" class="form-control" placeholder="e.g. OFF-TG03-01" required></div>';
+            regHTML += '</div>';
+            regHTML += '<div class="form-group"><label>RTO Office Name</label><input type="text" id="offOfficeName" placeholder="RTA Office Location Name"></div>';
+            regHTML += '<div class="form-group"><label>Official Email Address *</label><input type="email" id="offEmail" placeholder="officer@drivesetu.com" required></div>';
+            regHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">';
+            regHTML += '<div><label class="form-label">Password *</label><input type="password" id="offPass" class="form-control" placeholder="Min 6 chars" required minlength="6"></div>';
+            regHTML += '<div><label class="form-label">Confirm Password *</label><input type="password" id="offConfirmPass" class="form-control" placeholder="Re-enter password" required minlength="6"></div>';
+            regHTML += '</div>';
+            regHTML += '<button type="submit" class="btn btn-primary" id="submitOfficerRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem; background:var(--primary-dark);"><i class="fa-solid fa-paper-plane"></i> Submit RTO Registration Request</button>';
+            regHTML += '</form>';
+
             regHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Already have an account? <a href="#citizen-login" id="toLoginBtn">Sign in here</a></p></div>';
             regHTML += '</div>';
             regHTML += '<button class="btn btn-back" style="margin-top:1.25rem;" id="backHomeBtnReg"><i class="ph ph-arrow-left"></i> Back to Home</button>';
@@ -1903,6 +1653,33 @@ function render() {
             document.getElementById('backHomeBtnReg').onclick = function() { window.location.hash = 'home'; };
             document.getElementById('toLoginBtn').onclick = function() { window.location.hash = 'citizen-login'; };
 
+            // Global tab switcher
+            window.switchRegTab = function(mode) {
+                var cForm = document.getElementById('registerForm');
+                var oForm = document.getElementById('registerOfficerForm');
+                var cBtn = document.getElementById('tabCitizenBtn');
+                var oBtn = document.getElementById('tabOfficerBtn');
+                var alertBox = document.getElementById('registerAlert');
+                if (alertBox) alertBox.style.display = 'none';
+
+                if (mode === 'officer') {
+                    cForm.style.display = 'none';
+                    oForm.style.display = 'block';
+                    cBtn.style.color = 'var(--text-muted)';
+                    cBtn.style.borderBottom = '3px solid transparent';
+                    oBtn.style.color = 'var(--primary)';
+                    oBtn.style.borderBottom = '3px solid var(--primary)';
+                } else {
+                    cForm.style.display = 'block';
+                    oForm.style.display = 'none';
+                    oBtn.style.color = 'var(--text-muted)';
+                    oBtn.style.borderBottom = '3px solid transparent';
+                    cBtn.style.color = 'var(--primary)';
+                    cBtn.style.borderBottom = '3px solid var(--primary)';
+                }
+            };
+
+            // CITIZEN FORM SUBMIT
             document.getElementById('registerForm').onsubmit = async function(e) {
                 e.preventDefault();
                 var fullName = document.getElementById('registerFullName').value.trim();
@@ -1945,7 +1722,7 @@ function render() {
                 var cleanCheck = email.toLowerCase();
                 var isRtoEmail = cleanCheck.endsWith('@drivesetu.com') || rtoAccounts.some(function(acc) { return acc.email.toLowerCase() === cleanCheck; });
                 if (isRtoEmail) {
-                    showError('Official RTO accounts cannot be registered as citizen accounts.');
+                    showError('Official RTO accounts cannot be registered as citizen accounts. Switch to the RTO Officer tab above.');
                     return;
                 }
 
@@ -1991,10 +1768,10 @@ function render() {
                                 window.location.hash = 'citizen';
                             }, 800);
                         } catch (authErr) {
-                            showSuccess('Account registered successfully! Please check your email to confirm or proceed to Citizen Login.');
+                            showSuccess('Account registered successfully! Proceeding to Citizen Login...');
                             setTimeout(function() {
                                 window.location.hash = 'citizen-login';
-                            }, 2500);
+                            }, 2000);
                         }
                     }
 
@@ -2007,6 +1784,66 @@ function render() {
                     } else {
                         showError(errMsg || 'Registration failed. Please try again.');
                     }
+                }
+            };
+
+            // RTO OFFICER FORM SUBMIT
+            document.getElementById('registerOfficerForm').onsubmit = async function(e) {
+                e.preventDefault();
+                var alertBox = document.getElementById('registerAlert');
+
+                function showError(msg) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#fff5f5';
+                    alertBox.style.color = '#c53030';
+                    alertBox.style.border = '1px solid #feb2b2';
+                    alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + msg;
+                }
+
+                function showSuccess(msg) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = '#f0fff4';
+                    alertBox.style.color = '#276749';
+                    alertBox.style.border = '1px solid #9ae6b4';
+                    alertBox.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + msg;
+                }
+
+                var name = document.getElementById('offName').value.trim();
+                var role = document.getElementById('offRole') ? document.getElementById('offRole').value : 'REVIEWING_OFFICER';
+                var rtoCode = document.getElementById('offRtoCode').value;
+                var officerId = document.getElementById('offIdNo').value.trim();
+                var officeName = document.getElementById('offOfficeName').value.trim() || ('RTA Office ' + rtoCode);
+                var email = document.getElementById('offEmail').value.trim();
+                var password = document.getElementById('offPass').value;
+                var confirmPassword = document.getElementById('offConfirmPass').value;
+
+                if (password !== confirmPassword) {
+                    showError('Passwords do not match. Please re-enter.');
+                    return;
+                }
+
+                var btn = document.getElementById('submitOfficerRegisterBtn');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting Request...';
+
+                try {
+                    var reqRes = await DriveSetuSupabase.submitRTORegistrationRequest({
+                        fullName: name,
+                        officialEmail: email,
+                        password: password,
+                        role: role,
+                        rtoCode: rtoCode,
+                        officeName: officeName,
+                        officerId: officerId
+                    });
+
+                    showSuccess('✓ Registration Request Submitted! Your account request for role [' + role + '] at RTO ' + rtoCode + ' is pending approval by the Portal Owner / System Admin. You will be able to sign in once approved.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Request Submitted (Pending Approval)';
+                } catch(err) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit RTO Registration Request';
+                    showError(err.message || 'RTO registration request submission failed.');
                 }
             };
 
@@ -2041,7 +1878,18 @@ function render() {
         loginHTML += '</div>';
         loginHTML += '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ' + loginIcon + '"></i> Sign In</button>';
         loginHTML += '</form>';
-        loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have an account? <a href="#citizen-register" id="registerBtn">Register here</a></p></div>';
+        
+        if (isCitizenLogin) {
+            loginHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Don\'t have a citizen account? <a href="#citizen-register" id="registerBtn">Register as Citizen</a></p></div>';
+        } else {
+            loginHTML += '<div class="login-footer" style="margin-top:1.25rem; text-align:center;">' +
+                '<p style="margin-bottom:0.5rem; font-size:0.85rem; color:var(--text-muted);">Unregistered RTO Officer or Office?</p>' +
+                '<button type="button" class="btn btn-ghost" style="color:var(--primary); font-size:0.85rem; font-weight:600;" onclick="openRtoOfficeRegistrationModal()">' +
+                    '<i class="fa-solid fa-building-flag" style="margin-right:0.3rem;"></i> Register RTO Office & RTO Officer' +
+                '</button>' +
+            '</div>';
+        }
+        
         loginHTML += '</div>';
         loginHTML += '<button class="btn btn-back" style="margin-top:1.25rem;" id="backHomeBtn"><i class="ph ph-arrow-left"></i> Back to Home</button>';
         loginHTML += '</div></div>';
@@ -2050,7 +1898,8 @@ function render() {
 
         document.getElementById('loginBrandBtn').onclick = function() { window.location.hash = 'home'; };
         document.getElementById('backHomeBtn').onclick = function() { window.location.hash = 'home'; };
-        document.getElementById('registerBtn').onclick = function() { window.location.hash = 'citizen-register'; };
+        var regBtn = document.getElementById('registerBtn');
+        if (regBtn) regBtn.onclick = function() { window.location.hash = 'citizen-register'; };
         document.getElementById('forgotBtn').onclick = function() { alert('A password reset link has been sent to your registered email address.'); };
 
         document.getElementById('loginForm').onsubmit = async function(e) {
@@ -2100,73 +1949,38 @@ function render() {
                     alert('Incorrect details. Please check your credentials and try again.');
                 }
             } else {
-                // Search in RTO Accounts Directory or Supabase Admins
-                var matchedRto = null;
-                for (var r = 0; r < rtoAccounts.length; r++) {
-                    if (rtoAccounts[r].email.toLowerCase() === email.toLowerCase() && rtoAccounts[r].password === password) {
-                        matchedRto = rtoAccounts[r];
-                        break;
-                    }
+                // Authenticate RTO Officer / Operator via Supabase Auth
+                var submitBtn = document.getElementById('loginForm').querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...';
                 }
 
-                // Designated RTO accounts check
-                if (!matchedRto) {
-                    var inputEmail = email.toLowerCase();
-                    if (inputEmail === 'admin@drivesetu.com' && password === 'admin123') {
-                        matchedRto = {
-                            email: 'admin@drivesetu.com',
-                            password: password,
-                            role: 'ADMIN',
-                            name: 'System Administrator',
-                            rtoCode: 'ALL',
-                            rtoName: 'Telangana Transport Department',
-                            initials: 'ADM'
-                        };
-                    } else if (inputEmail === 'annan@drivesetu.com' && password === 'annan123') {
-                        matchedRto = {
-                            email: 'annan@drivesetu.com',
-                            password: password,
-                            role: 'REVIEWING_OFFICER',
-                            officerId: 'OFF-ANNAN',
-                            name: 'Officer Annan',
-                            rtoCode: 'TG-03',
-                            rtoName: 'RTA Medchal / Hyderabad West',
-                            initials: 'ANN'
-                        };
-                    } else if (inputEmail === 'rahil@drivesetu.com' && password === 'rahil123') {
-                        matchedRto = {
-                            email: 'rahil@drivesetu.com',
-                            password: password,
-                            role: 'REVIEWING_OFFICER',
-                            officerId: 'OFF-RAHIL',
-                            name: 'Officer Rahil',
-                            rtoCode: 'TG-05',
-                            rtoName: 'RTA Secunderabad / Hyderabad North',
-                            initials: 'RAH'
-                        };
-                    } else if (inputEmail === 'srivathsav@drivesetu.com' && password === 'srivathsav123') {
-                        matchedRto = {
-                            email: 'srivathsav@drivesetu.com',
-                            password: password,
-                            role: 'REVIEWING_OFFICER',
-                            officerId: 'OFF-SRIVATHSAV',
-                            name: 'Officer Srivathsav',
-                            rtoCode: 'TG-08',
-                            rtoName: 'RTA Uppal / Rangareddy',
-                            initials: 'SRI'
-                        };
-                    }
-                }
-
-                if (matchedRto) {
-                    sessionStorage.setItem('rtoSession', JSON.stringify(matchedRto));
-                    if (matchedRto.role === 'TEST_CENTRE_OPERATOR') {
+                try {
+                    var officerResult = await DriveSetuSupabase.authenticateOfficer(email, password);
+                    var officerSession = {
+                        email: officerResult.email,
+                        name: officerResult.name,
+                        role: officerResult.role,
+                        rtoCode: officerResult.rtoCode,
+                        rtoName: officerResult.rtoName,
+                        officerId: officerResult.officerId,
+                        initials: (officerResult.name || 'OFF').slice(0, 3).toUpperCase()
+                    };
+                    sessionStorage.setItem('rtoSession', JSON.stringify(officerSession));
+                    if (officerResult.role === 'TEST_CENTRE_OPERATOR') {
                         window.location.hash = 'test-centre';
                     } else {
                         window.location.hash = 'rto';
                     }
-                } else {
-                    alert('Incorrect details. Please check your credentials and try again.');
+                } catch(err) {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="ph ' + loginIcon + '"></i> Sign In';
+                    }
+                    if (confirm('Account not found in Supabase Auth.\n\nWould you like to register a new RTO Office & Officer account now?')) {
+                        openRtoOfficeRegistrationModal();
+                    }
                 }
             }
         };
@@ -7097,7 +6911,7 @@ function testCentreSearchApp(appIdSearch) {
         if (input) searchId = input.value.trim().toUpperCase();
     }
     if (!searchId) {
-        alert('Please enter an Application ID (e.g. APP-206500 or APP-DEMO-001).');
+        alert('Please enter an Application ID.');
         return;
     }
 
@@ -8082,6 +7896,265 @@ function renderPendingTasksPage(session) {
             '</div>' +
             cardsHTML +
         '</div>';
+}
+
+// ─── RTO OFFICE & OFFICER REGISTRATION MODAL ───
+function openRtoOfficeRegistrationModal() {
+    var existingModal = document.getElementById('rtoRegModal');
+    if (existingModal) existingModal.remove();
+
+    var modalHTML = '<div id="rtoRegModal" class="modal-overlay">' +
+        '<div class="executive-modal animate-in">' +
+            '<div class="executive-modal-header">' +
+                '<div>' +
+                    '<h3><i class="fa-solid fa-building-flag" style="color:#60a5fa;"></i> Register RTO Office & Officer</h3>' +
+                    '<p>Register a new RTO jurisdiction and its primary RTO Officer account.</p>' +
+                '</div>' +
+                '<button type="button" class="executive-modal-close" onclick="document.getElementById(\'rtoRegModal\').remove()">&times;</button>' +
+            '</div>' +
+
+            '<form id="rtoOfficeRegForm" class="executive-modal-body">' +
+                '<!-- Section 1: Office Details -->' +
+                '<div class="form-section-card">' +
+                    '<div class="form-section-title"><i class="fa-solid fa-landmark" style="color:var(--primary);"></i> 1. RTO Office Details</div>' +
+                    '<div class="form-grid-2">' +
+                        '<div class="form-field-group">' +
+                            '<label>RTO Office Name *</label>' +
+                            '<input type="text" id="regOfficeName" class="form-field-input" placeholder="e.g. RTA Medchal / Hyderabad West" required>' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>RTO Code / Number *</label>' +
+                            '<input type="text" id="regRtoCode" class="form-field-input" placeholder="e.g. TG-03" required>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-grid-3">' +
+                        '<div class="form-field-group">' +
+                            '<label>RTO Type</label>' +
+                            '<select id="regRtoType" class="form-field-select">' +
+                                '<option value="Regional Transport Office">Regional Transport Office (RTO)</option>' +
+                                '<option value="Unit Office">Unit Office</option>' +
+                            '</select>' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>State *</label>' +
+                            '<input type="text" id="regState" class="form-field-input" value="Telangana" required>' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>District *</label>' +
+                            '<input type="text" id="regDistrict" class="form-field-input" placeholder="e.g. Medchal" required>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-field-group" style="margin-bottom:1rem;">' +
+                        '<label>Office Physical Address *</label>' +
+                        '<input type="text" id="regOfficeAddress" class="form-field-input" placeholder="Physical street address" required>' +
+                    '</div>' +
+                    '<div class="form-grid-3">' +
+                        '<div class="form-field-group">' +
+                            '<label>PIN Code</label>' +
+                            '<input type="text" id="regPinCode" class="form-field-input" placeholder="500072">' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Office Phone</label>' +
+                            '<input type="text" id="regOfficePhone" class="form-field-input" placeholder="040-23000003">' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Office Email</label>' +
+                            '<input type="email" id="regOfficeEmail" class="form-field-input" placeholder="rto.tg03@drivesetu.com">' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                '<!-- Section 2: Officer Details -->' +
+                '<div class="form-section-card">' +
+                    '<div class="form-section-title"><i class="fa-solid fa-user-shield" style="color:var(--primary);"></i> 2. RTO Officer Account Details</div>' +
+                    '<div class="form-grid-2">' +
+                        '<div class="form-field-group">' +
+                            '<label>Officer Full Name *</label>' +
+                            '<input type="text" id="regOfficerName" class="form-field-input" placeholder="e.g. Officer K. Rao" required>' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Officer ID No <span class="help-text">(Auto-generated if empty)</span></label>' +
+                            '<input type="text" id="regOfficerId" class="form-field-input" placeholder="e.g. OFF-TG03-01">' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-grid-2">' +
+                        '<div class="form-field-group">' +
+                            '<label>Designation</label>' +
+                            '<input type="text" id="regDesignation" class="form-field-input" value="RTO Reviewing Officer">' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Official Mobile</label>' +
+                            '<input type="text" id="regOfficialMobile" class="form-field-input" placeholder="10-digit Mobile">' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-field-group" style="margin-bottom:1rem;">' +
+                        '<label>Official Email (Login Username) *</label>' +
+                        '<input type="email" id="regOfficialEmail" class="form-field-input" placeholder="officer@drivesetu.com" required>' +
+                    '</div>' +
+                    '<div class="form-grid-2">' +
+                        '<div class="form-field-group">' +
+                            '<label>Password *</label>' +
+                            '<input type="password" id="regPassword" class="form-field-input" placeholder="At least 6 characters" required minlength="6">' +
+                        '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Confirm Password *</label>' +
+                            '<input type="password" id="regConfirmPassword" class="form-field-input" placeholder="Re-enter password" required minlength="6">' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+
+                '<div class="executive-modal-footer" style="padding-left:0; padding-right:0; background:none; border:none;">' +
+                    '<button type="button" class="btn btn-ghost" onclick="document.getElementById(\'rtoRegModal\').remove()">Cancel</button>' +
+                    '<button type="submit" class="btn btn-primary" style="padding:0.65rem 1.4rem; font-size:0.9rem;"><i class="fa-solid fa-check-circle"></i> Complete Registration</button>' +
+                '</div>' +
+            '</form>' +
+        '</div>' +
+    '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    document.getElementById('rtoOfficeRegForm').onsubmit = async function(e) {
+        e.preventDefault();
+        var pass = document.getElementById('regPassword').value;
+        var confirmPass = document.getElementById('regConfirmPassword').value;
+        if (pass !== confirmPass) {
+            alert('Passwords do not match. Please re-enter.');
+            return;
+        }
+
+        var payload = {
+            officeName: document.getElementById('regOfficeName').value.trim(),
+            rtoCode: document.getElementById('regRtoCode').value.trim(),
+            rtoType: document.getElementById('regRtoType').value,
+            state: document.getElementById('regState').value.trim(),
+            district: document.getElementById('regDistrict').value.trim(),
+            officeAddress: document.getElementById('regOfficeAddress').value.trim(),
+            pinCode: document.getElementById('regPinCode').value.trim(),
+            officePhone: document.getElementById('regOfficePhone').value.trim(),
+            officeEmail: document.getElementById('regOfficeEmail').value.trim(),
+
+            officerName: document.getElementById('regOfficerName').value.trim(),
+            officerId: document.getElementById('regOfficerId').value.trim(),
+            designation: document.getElementById('regDesignation').value.trim(),
+            officialEmail: document.getElementById('regOfficialEmail').value.trim(),
+            officialMobile: document.getElementById('regOfficialMobile').value.trim(),
+            password: pass
+        };
+
+        var btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering...';
+
+        try {
+            var result = await DriveSetuSupabase.registerRTOOffice(payload);
+            document.getElementById('rtoRegModal').remove();
+            alert('✓ RTO Office & Officer account registered successfully!\n\nYou can now log in with ' + payload.officialEmail);
+            
+            // Auto login officer
+            var officerSession = {
+                email: payload.officialEmail,
+                name: payload.officerName,
+                role: 'RTO_OFFICER',
+                rtoCode: payload.rtoCode,
+                rtoName: payload.officeName,
+                officerId: payload.officerId || ('OFF-' + payload.rtoCode),
+                initials: payload.officerName.slice(0, 3).toUpperCase()
+            };
+            sessionStorage.setItem('rtoSession', JSON.stringify(officerSession));
+            window.location.hash = 'rto';
+            render();
+        } catch(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Complete Registration';
+            alert('Registration Failed: ' + (err.message || 'Server error.'));
+        }
+    };
+}
+
+// ─── CREATE RTO EMPLOYEE MODAL (FOR AUTHORIZED RTO OFFICERS) ───
+function openCreateEmployeeModal(rtoCode, rtoOfficeId) {
+    var existingModal = document.getElementById('empModal');
+    if (existingModal) existingModal.remove();
+
+    var modalHTML = '<div id="empModal" class="modal-overlay">' +
+        '<div class="executive-modal animate-in" style="max-width:540px;">' +
+            '<div class="executive-modal-header">' +
+                '<div>' +
+                    '<h3><i class="fa-solid fa-user-plus" style="color:#60a5fa;"></i> Add RTO Employee (' + (rtoCode || 'TG-03') + ')</h3>' +
+                    '<p>Create an employee account belonging to RTO Office ' + (rtoCode || 'TG-03') + '</p>' +
+                '</div>' +
+                '<button type="button" class="executive-modal-close" onclick="document.getElementById(\'empModal\').remove()">&times;</button>' +
+            '</div>' +
+
+            '<form id="empAddForm" class="executive-modal-body">' +
+                '<div class="form-field-group" style="margin-bottom:1rem;">' +
+                    '<label>Employee Full Name *</label>' +
+                    '<input type="text" id="empFullName" class="form-field-input" placeholder="e.g. Employee A" required>' +
+                '</div>' +
+                '<div class="form-grid-2">' +
+                    '<div class="form-field-group">' +
+                        '<label>Employee ID</label>' +
+                        '<input type="text" id="empId" class="form-field-input" placeholder="EMP-' + (rtoCode || 'TG03') + '-01">' +
+                    '</div>' +
+                    '<div class="form-field-group">' +
+                        '<label>Designation</label>' +
+                        '<input type="text" id="empDesignation" class="form-field-input" value="Driving Test Inspector">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-grid-2">' +
+                    '<div class="form-field-group">' +
+                        '<label>Official Email *</label>' +
+                        '<input type="email" id="empEmail" class="form-field-input" placeholder="employee@drivesetu.com" required>' +
+                    '</div>' +
+                    '<div class="form-field-group">' +
+                        '<label>Official Mobile</label>' +
+                        '<input type="text" id="empMobile" class="form-field-input" placeholder="Mobile Number">' +
+                    '</div>' +
+                '</div>' +
+                '<div class="form-field-group" style="margin-bottom:1.5rem;">' +
+                    '<label>Account Password *</label>' +
+                    '<input type="password" id="empPassword" class="form-field-input" placeholder="At least 6 characters" required minlength="6">' +
+                '</div>' +
+
+                '<div class="executive-modal-footer" style="padding-left:0; padding-right:0; background:none; border:none;">' +
+                    '<button type="button" class="btn btn-ghost" onclick="document.getElementById(\'empModal\').remove()">Cancel</button>' +
+                    '<button type="submit" class="btn btn-primary" style="padding:0.65rem 1.4rem; font-size:0.9rem;"><i class="fa-solid fa-user-check"></i> Create Employee Account</button>' +
+                '</div>' +
+            '</form>' +
+        '</div>' +
+    '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    document.getElementById('empAddForm').onsubmit = async function(e) {
+        e.preventDefault();
+        var payload = {
+            fullName: document.getElementById('empFullName').value.trim(),
+            employeeId: document.getElementById('empId').value.trim() || ('EMP-' + Date.now().toString().slice(-4)),
+            designation: document.getElementById('empDesignation').value.trim(),
+            officialEmail: document.getElementById('empEmail').value.trim(),
+            officialMobile: document.getElementById('empMobile').value.trim(),
+            role: 'RTO_EMPLOYEE',
+            rtoCode: rtoCode || 'TG-03',
+            rtoOfficeId: rtoOfficeId || null,
+            password: document.getElementById('empPassword').value
+        };
+
+        var btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creating...';
+
+        try {
+            await DriveSetuSupabase.createRTOEmployee(payload);
+            document.getElementById('empModal').remove();
+            alert('✓ RTO Employee account created successfully under ' + (rtoCode || 'TG-03') + '!\n\nEmail: ' + payload.officialEmail);
+            render();
+        } catch(err) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-user-check"></i> Create Employee Account';
+            alert('Employee Creation Failed: ' + (err.message || 'Server error.'));
+        }
+    };
 }
 
 // ─── INIT ───
