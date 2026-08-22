@@ -127,12 +127,22 @@ app.post('/api/submit-citizen-application', async (req, res) => {
         const cleanEmail = (application.citizenId || details.email || '').trim().toLowerCase();
         const cleanName = application.name || details.fullName || 'Citizen Applicant';
 
-        // 1. Find user_id from auth.users or profiles
+        // 1. Find or create Auth user_id
         let userId = null;
         try {
             const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
             const foundUser = (usersList?.users || []).find(u => u.email.toLowerCase() === cleanEmail);
-            if (foundUser) userId = foundUser.id;
+            if (foundUser) {
+                userId = foundUser.id;
+            } else if (cleanEmail) {
+                const { data: newUser } = await supabaseAdmin.auth.admin.createUser({
+                    email: cleanEmail,
+                    password: 'CitizenPass123!',
+                    email_confirm: true,
+                    user_metadata: { full_name: cleanName }
+                });
+                if (newUser && newUser.user) userId = newUser.user.id;
+            }
         } catch(uErr) {}
 
         if (!userId) {
@@ -180,6 +190,7 @@ app.post('/api/submit-citizen-application', async (req, res) => {
 
         // 4. Upsert into public.citizen_documents
         const docPayload = {
+            user_id: userId,
             full_name: cleanName,
             email: cleanEmail,
             mobile: details.mobile || service.mobile || '',
@@ -198,14 +209,12 @@ app.post('/api/submit-citizen-application', async (req, res) => {
             updated_at: new Date().toISOString()
         };
 
-        if (userId) docPayload.user_id = userId;
-
         const { data: dbData, error: dbError } = await supabaseAdmin
             .from('citizen_documents')
-            .upsert([docPayload]);
+            .upsert([docPayload], { onConflict: 'user_id' });
 
         if (dbError) {
-            console.error("Error inserting into citizen_documents:", dbError);
+            console.error("Error inserting into citizen_documents:", dbError.message);
         }
 
         return res.json({ success: true, applicationId: application.id });
