@@ -345,6 +345,19 @@ async function fetchUserFiles() {
  * Sync Citizen Application Data & Document Storage Paths to Supabase Tables (citizen_documents & citizen_info)
  */
 async function syncApplicationToSupabase(app) {
+    try {
+        const resp = await fetch('/api/submit-citizen-application', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ application: app })
+        });
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            console.log("✅ Application & Document Storage Paths saved to Supabase via server API");
+            return result;
+        }
+    } catch(e) {}
+
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
 
     try {

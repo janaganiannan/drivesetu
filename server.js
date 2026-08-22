@@ -107,6 +107,113 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
+// Production API Route: Save Citizen Application & Documents directly to Supabase
+app.post('/api/submit-citizen-application', async (req, res) => {
+    try {
+        const { application } = req.body;
+        if (!application || !application.id) {
+            return res.status(400).json({ error: 'Application data is required.' });
+        }
+
+        if (!supabaseAdmin) {
+            return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
+        }
+
+        const details = application.applicantDetails || {};
+        const service = application.serviceDetails || {};
+        const docs = application.documents || [];
+        const evidence = application.testEvidence || {};
+
+        const cleanEmail = (application.citizenId || details.email || '').trim().toLowerCase();
+        const cleanName = application.name || details.fullName || 'Citizen Applicant';
+
+        // 1. Find user_id from auth.users or profiles
+        let userId = null;
+        try {
+            const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
+            const foundUser = (usersList?.users || []).find(u => u.email.toLowerCase() === cleanEmail);
+            if (foundUser) userId = foundUser.id;
+        } catch(uErr) {}
+
+        if (!userId) {
+            try {
+                const { data: profRow } = await supabaseAdmin
+                    .from('profiles')
+                    .select('id')
+                    .eq('email', cleanEmail)
+                    .single();
+                if (profRow) userId = profRow.id;
+            } catch(pErr) {}
+        }
+
+        // 2. Extract Document Paths
+        let identityPath = '';
+        let addressPath = '';
+        let medicalPath = '';
+
+        docs.forEach(function(d) {
+            if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport') {
+                identityPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/identity_proof.pdf');
+            } else if (d.id === 'proof_address' || d.id === 'utility') {
+                addressPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/address_proof.pdf');
+            } else if (d.id === 'form_1a' || d.id === 'medical') {
+                medicalPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/medical_certificate.pdf');
+            }
+        });
+
+        let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || ('citizen-documents/' + (userId || 'anon') + '/driving_test.mp4')) : '';
+        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || ('citizen-documents/' + (userId || 'anon') + '/ai_analysis_report.pdf')) : '';
+
+        // 3. Upsert into public.citizen_info
+        if (userId) {
+            try {
+                await supabaseAdmin.from('citizen_info').upsert({
+                    user_id: userId,
+                    full_name: cleanName,
+                    email: cleanEmail,
+                    mobile: details.mobile || service.mobile || '',
+                    address: details.address || service.address || '',
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+            } catch(iErr) {}
+        }
+
+        // 4. Upsert into public.citizen_documents
+        const docPayload = {
+            full_name: cleanName,
+            email: cleanEmail,
+            mobile: details.mobile || service.mobile || '',
+            address: details.address || service.address || '',
+            aadhaar_number: service.aadhaarNumber || '',
+            application_id: application.id,
+            application_type: application.type,
+            application_status: application.status || 'Submitted',
+            rto_code: service.rtoCode || application.allocatedRtoCode || 'TG-03',
+            proof_identity_doc_path: identityPath || null,
+            proof_address_doc_path: addressPath || null,
+            medical_certificate_doc_path: medicalPath || null,
+            test_video_path: videoPath || null,
+            ai_report_path: aiReportPath || null,
+            test_result: application.status === 'Approved' ? 'PASS' : (application.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
+            updated_at: new Date().toISOString()
+        };
+
+        if (userId) docPayload.user_id = userId;
+
+        const { data: dbData, error: dbError } = await supabaseAdmin
+            .from('citizen_documents')
+            .upsert([docPayload]);
+
+        if (dbError) {
+            console.error("Error inserting into citizen_documents:", dbError);
+        }
+
+        return res.json({ success: true, applicationId: application.id });
+    } catch (err) {
+        return res.status(500).json({ error: err.message || 'Application save failed.' });
+    }
+});
+
 // Production API Route: Register Official RTO Officers & Test Centre Operators into Supabase
 app.post('/api/register-officer', async (req, res) => {
     try {
