@@ -16,7 +16,21 @@
     <div id="app"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabaseClient.js?v=20260821_1215"></script>
-    <script src="app.js?v=20260821_1215"></script>
+    <script>
+        (function() {
+            try {
+                var rawApps = localStorage.getItem('drivesetu_applications');
+                var rawRev = localStorage.getItem('drivesetu_pending_reviews');
+                if ((rawApps && (rawApps.indexOf('APP-DEMO-001') !== -1 || rawApps.indexOf('LL-SUFYAN-001') !== -1 || rawApps.indexOf('Rahul') !== -1 || rawApps.indexOf('APP-102') !== -1)) ||
+                    (rawRev && (rawRev.indexOf('APP-DEMO-001') !== -1 || rawRev.indexOf('APP-102') !== -1))) {
+                    localStorage.removeItem('drivesetu_applications');
+                    localStorage.removeItem('drivesetu_pending_reviews');
+                    localStorage.removeItem('drivesetu_audit_log');
+                }
+            } catch(e) {}
+        })();
+    </script>
+    <script src="supabaseClient.js?v=20260821_2305"></script>
+    <script src="app.js?v=20260821_2305"></script>
 </body>
 </html>

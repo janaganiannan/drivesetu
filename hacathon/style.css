@@ -1105,5 +1105,191 @@ body {
     margin-bottom: 1.5rem;
 }
 
+/* ─── EXECUTIVE MODAL & FORM COMPONENT STYLES ─── */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+}
+
+.executive-modal {
+    max-width: 720px;
+    width: 100%;
+    max-height: 88vh;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: scale(0.96) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.executive-modal-header {
+    padding: 1.25rem 1.75rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.executive-modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #ffffff;
+}
+
+.executive-modal-header p {
+    margin: 0.2rem 0 0 0;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.executive-modal-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #cbd5e1;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.executive-modal-close:hover {
+    background: rgba(239, 68, 68, 0.8);
+    color: #ffffff;
+}
+
+.executive-modal-body {
+    padding: 1.75rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+}
+
+.executive-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.executive-modal-body::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.executive-modal-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.form-section-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-section-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.form-field-group label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.form-field-group label .help-text {
+    font-size: 0.72rem;
+    font-weight: 400;
+    color: #64748b;
+}
+
+.form-field-input, .form-field-select {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.88rem;
+    font-family: 'Outfit', sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.form-field-input:focus, .form-field-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    background: #ffffff;
+}
+
+.form-field-input::placeholder {
+    color: #94a3b8;
+}
+
+.executive-modal-footer {
+    padding: 1.25rem 1.75rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
 
 

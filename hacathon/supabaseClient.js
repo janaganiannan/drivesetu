@@ -8,25 +8,11 @@ const supabaseClient = (typeof supabase !== 'undefined' && supabase && typeof su
     : null;
 
 const ADMIN_EMAILS = [
-    'annan@drivesetu.com',
-    'srivathsav@drivesetu.com',
-    'rahil@drivesetu.com',
     'admin@drivesetu.com'
 ];
 
 const OFFICIAL_ADMIN_EMAILS = [
-    'admin@drivesetu.com',
-    'annan@drivesetu.com',
-    'srivathsav@drivesetu.com',
-    'rahil@drivesetu.com',
-    'officer01.tg03@drivesetu.com',
-    'officer09.tg05@drivesetu.com',
-    'officer17.tg08@drivesetu.com',
-    'officer31.tg12@drivesetu.com',
-    'operator.tg03@drivesetu.com',
-    'operator.tg05@drivesetu.com',
-    'operator.tg08@drivesetu.com',
-    'operator.tg12@drivesetu.com'
+    'admin@drivesetu.com'
 ];
 
 function isOfficialRtoAccount(email) {
@@ -349,6 +335,250 @@ async function fetchUserFiles() {
     return data;
 }
 
+/**
+ * Official RTO Officer / Operator Authentication Handler
+ * Authenticates directly with Supabase Auth and fetches role metadata from rto_officers/profiles
+ */
+async function authenticateOfficer(email, password) {
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if user has a pending registration request first
+    let localPending = getLocalPendingRequests();
+    let pendingReq = localPending.find(r => r.email.toLowerCase() === cleanEmail);
+    if (pendingReq && pendingReq.status === 'Pending') {
+        throw new Error("⛔ Access Pending: Your RTO registration request is awaiting Portal Admin approval. Please contact the system administrator.");
+    }
+    if (pendingReq && pendingReq.status === 'Rejected') {
+        throw new Error("⛔ Registration Rejected: Your RTO registration request was declined by the System Administrator.");
+    }
+
+    if (!supabaseClient) {
+        throw new Error("Supabase client not initialized.");
+    }
+
+    const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+        email: cleanEmail,
+        password: password
+    });
+
+    if (loginError || !loginData.user) {
+        throw new Error("Invalid officer credentials or unauthorized account.");
+    }
+
+    const user = loginData.user;
+    let officerProfile = null;
+
+    try {
+        const { data: offRow } = await supabaseClient
+            .from('rto_officers')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+        if (offRow) officerProfile = offRow;
+    } catch(e) {}
+
+    if (!officerProfile) {
+        try {
+            const { data: profRow } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (profRow) officerProfile = profRow;
+        } catch(e) {}
+    }
+
+    const meta = user.user_metadata || {};
+    const role = (officerProfile && officerProfile.role) || meta.role || (cleanEmail === 'admin@drivesetu.com' ? 'ADMIN' : 'REVIEWING_OFFICER');
+
+    return {
+        id: user.id,
+        email: user.email,
+        name: (officerProfile && officerProfile.full_name) || meta.full_name || cleanEmail.split('@')[0].toUpperCase(),
+        role: role,
+        rtoCode: (officerProfile && officerProfile.rto_code) || meta.rto_code || 'TG-03',
+        rtoName: (officerProfile && officerProfile.rto_name) || 'RTA Telangana',
+        officerId: (officerProfile && officerProfile.officer_id) || ('OFF-' + user.id.slice(-4)),
+        user: user
+    };
+}
+
+function getLocalPendingRequests() {
+    try {
+        var raw = localStorage.getItem('drivesetu_pending_rto_requests');
+        return raw ? JSON.parse(raw) : [];
+    } catch(e) {
+        return [];
+    }
+}
+
+function saveLocalPendingRequests(list) {
+    try {
+        localStorage.setItem('drivesetu_pending_rto_requests', JSON.stringify(list));
+    } catch(e) {}
+}
+
+/**
+ * Submit RTO Registration Request (Stores in Pending queue for Portal Admin approval)
+ */
+async function submitRTORegistrationRequest(requestData) {
+    try {
+        const resp = await fetch('/api/rto-registration-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestData)
+        });
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            let list = getLocalPendingRequests();
+            list.push(result.request || requestData);
+            saveLocalPendingRequests(list);
+            return result;
+        }
+    } catch(e) {}
+
+    // Fallback: Local storage request creation
+    let list = getLocalPendingRequests();
+    const reqObj = {
+        id: 'REQ-' + Date.now(),
+        full_name: requestData.fullName,
+        email: requestData.officialEmail.trim().toLowerCase(),
+        password: requestData.password,
+        role: requestData.role || 'REVIEWING_OFFICER',
+        rto_code: requestData.rtoCode || 'TG-03',
+        rto_name: requestData.officeName || ('RTA Office ' + (requestData.rtoCode || 'TG-03')),
+        officer_id: requestData.officerId || ('OFF-' + Date.now().toString().slice(-4)),
+        designation: requestData.designation || 'RTO Officer',
+        mobile: requestData.officialMobile || '',
+        status: 'Pending',
+        created_at: new Date().toISOString()
+    };
+    list.push(reqObj);
+    saveLocalPendingRequests(list);
+    return { success: true, message: 'Request submitted successfully. Pending Admin approval.', request: reqObj };
+}
+
+/**
+ * Fetch Pending RTO Registration Requests for Portal Admin
+ */
+async function fetchPendingRTORequests() {
+    try {
+        const resp = await fetch('/api/admin/pending-rto-requests');
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success && Array.isArray(result.requests)) {
+                let localList = getLocalPendingRequests();
+                result.requests.forEach(r => {
+                    if (!localList.some(l => l.id === r.id || (l.email === r.email && l.status === r.status))) {
+                        localList.push(r);
+                    }
+                });
+                saveLocalPendingRequests(localList);
+                return result.requests;
+            }
+        }
+    } catch(e) {}
+
+    return getLocalPendingRequests();
+}
+
+/**
+ * Portal Admin Approve Request
+ */
+async function approveRTORegistrationRequest(requestId, email) {
+    try {
+        const resp = await fetch('/api/admin/approve-rto-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestId, email })
+        });
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            let list = getLocalPendingRequests();
+            let item = list.find(r => r.id === requestId || (email && r.email.toLowerCase() === email.toLowerCase()));
+            if (item) item.status = 'Approved';
+            saveLocalPendingRequests(list);
+            return result;
+        }
+    } catch(e) {}
+
+    // Local fallback update
+    let list = getLocalPendingRequests();
+    let item = list.find(r => r.id === requestId || (email && r.email.toLowerCase() === email.toLowerCase()));
+    if (item) item.status = 'Approved';
+    saveLocalPendingRequests(list);
+    return { success: true, message: 'Request approved locally.' };
+}
+
+/**
+ * Portal Admin Reject Request
+ */
+async function rejectRTORegistrationRequest(requestId, email) {
+    try {
+        const resp = await fetch('/api/admin/reject-rto-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestId, email })
+        });
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            let list = getLocalPendingRequests();
+            let item = list.find(r => r.id === requestId || (email && r.email.toLowerCase() === email.toLowerCase()));
+            if (item) item.status = 'Rejected';
+            saveLocalPendingRequests(list);
+            return result;
+        }
+    } catch(e) {}
+
+    let list = getLocalPendingRequests();
+    let item = list.find(r => r.id === requestId || (email && r.email.toLowerCase() === email.toLowerCase()));
+    if (item) item.status = 'Rejected';
+    saveLocalPendingRequests(list);
+    return { success: true, message: 'Request rejected.' };
+}
+
+/**
+ * Register RTO Office & RTO Officer via Server API / Supabase
+ */
+async function registerRTOOffice(rtoOfficeData) {
+    try {
+        const resp = await fetch('/api/register-rto-office', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rtoOfficeData)
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.success) {
+            throw new Error(result.error || 'RTO Office registration failed.');
+        }
+        return result;
+    } catch(err) {
+        throw err;
+    }
+}
+
+/**
+ * Create RTO Employee under an RTO Office ID
+ */
+async function createRTOEmployee(employeeData) {
+    try {
+        const resp = await fetch('/api/register-employee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(employeeData)
+        });
+        const result = await resp.json();
+        if (!resp.ok || !result.success) {
+            throw new Error(result.error || 'Employee registration failed.');
+        }
+        return result;
+    } catch(err) {
+        throw err;
+    }
+}
+
 // Global exports for browser usage
 if (typeof window !== 'undefined') {
     window.DriveSetuSupabase = {
@@ -356,6 +586,13 @@ if (typeof window !== 'undefined') {
         registerUser,
         loginUser,
         authenticateCitizen,
+        authenticateOfficer,
+        registerRTOOffice,
+        createRTOEmployee,
+        submitRTORegistrationRequest,
+        fetchPendingRTORequests,
+        approveRTORegistrationRequest,
+        rejectRTORegistrationRequest,
         checkIsAdmin,
         uploadUserFile,
         fetchUserFiles,
@@ -369,6 +606,13 @@ if (typeof module !== 'undefined' && module.exports) {
         registerUser,
         loginUser,
         authenticateCitizen,
+        authenticateOfficer,
+        registerRTOOffice,
+        createRTOEmployee,
+        submitRTORegistrationRequest,
+        fetchPendingRTORequests,
+        approveRTORegistrationRequest,
+        rejectRTORegistrationRequest,
         checkIsAdmin,
         uploadUserFile,
         fetchUserFiles,
