@@ -2048,7 +2048,10 @@ function render() {
                         '<td>' + app.date + '</td>' +
                         '<td>' + stBadge + '</td>' +
                         '<td>' + stageText + '</td>' +
-                        '<td><button class="btn btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="event.stopPropagation(); quickTrack(\'' + app.id + '\')"><i class="fa-solid fa-magnifying-glass"></i> View Details</button></td>' +
+                        '<td>' +
+                            '<button class="btn btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.75rem; margin-right:0.3rem;" onclick="event.stopPropagation(); quickTrack(\'' + app.id + '\')"><i class="fa-solid fa-magnifying-glass"></i> View Details</button>' +
+                            '<button class="btn btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.75rem; color:#dc2626; border:1px solid #fca5a5;" onclick="event.stopPropagation(); deleteCitizenApplication(\'' + app.id + '\')"><i class="fa-solid fa-trash"></i> Delete</button>' +
+                        '</td>' +
                         '</tr>';
                 }).join('');
 
@@ -2094,6 +2097,27 @@ function render() {
                     '</div>' +
                 '</div>';
             }
+
+            window.deleteCitizenApplication = async function(appId) {
+                if (!confirm('Are you sure you want to delete application ' + appId + '?')) return;
+
+                var allApps = getStoredApplications();
+                var filtered = allApps.filter(function(a) { return a.id !== appId; });
+                saveStoredApplications(filtered);
+
+                var allReviews = getStoredReviews();
+                var filteredReviews = allReviews.filter(function(r) { return r.appId !== appId; });
+                saveStoredReviews(filteredReviews);
+
+                if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+                    try {
+                        await supabaseClient.from('citizen_documents').delete().eq('application_id', appId);
+                    } catch(e) {}
+                }
+
+                alert('Application ' + appId + ' has been deleted.');
+                renderApp();
+            };
 
             pageContent = '' +
                 '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'citizen\'"><i class="fa-solid fa-arrow-left"></i> Back to Citizen Portal</button></div>' +
