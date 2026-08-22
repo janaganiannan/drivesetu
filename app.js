@@ -4991,7 +4991,7 @@ function renderLearnerPage(session) {
                     '<div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.75rem;"><i class="fa-solid fa-info-circle"></i> Please upload accepted documents. Mandatory uploads are highlighted in red.</div>' +
                     '<div id="documentChecklistContainer" style="overflow-x:auto; margin-bottom:1.5rem;"></div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Learner Licence Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'Learner\\\'s Licence\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Learner Licence Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
@@ -5671,7 +5671,7 @@ function renderPermanentPage(session) {
                         '<small style="color:var(--text-muted); font-size:0.75rem; display:block; margin-top:0.2rem;">Prototype Test Appointment: Actual live availability will be allocated within this window.</small>' +
                     '</div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.8rem; font-size:1rem;"><i class="fa-solid fa-paper-plane"></i> Submit Permanent Licence Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'Permanent Licence\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.8rem; font-size:1rem;"><i class="fa-solid fa-paper-plane"></i> Submit Permanent Licence Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
@@ -5800,7 +5800,7 @@ function renderAdditionPage(session) {
                     '</div>' +
                     '<div id="testEvidenceContainer" style="margin-bottom:1.5rem;"></div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Addition of Class Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'Addition of Class\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Addition of Class Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
@@ -5849,7 +5849,7 @@ function renderIdpPage(session) {
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Required Documents Checklist</h4>' +
                     '<div id="documentChecklistContainer" style="overflow-x:auto; margin-bottom:1.5rem;"></div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit IDP Permit Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'International Driving Permit\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit IDP Permit Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
@@ -5916,7 +5916,7 @@ function renderRenewalPage(session) {
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Required Documents Checklist</h4>' +
                     '<div id="documentChecklistContainer" style="overflow-x:auto; margin-bottom:1.5rem;"></div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Renewal Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'Renewal\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Renewal Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
@@ -5980,7 +5980,7 @@ function renderDuplicatePage(session) {
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Required Documents Checklist</h4>' +
                     '<div id="documentChecklistContainer" style="overflow-x:auto; margin-bottom:1.5rem;"></div>' +
 
-                    '<button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Duplicate DL Application</button>' +
+                    '<button type="button" onclick="submitServiceForm(\'Duplicate\')" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.75rem;"><i class="fa-solid fa-paper-plane"></i> Submit Duplicate DL Application</button>' +
                 '</form>' +
             '</div>' +
         '</div>';
