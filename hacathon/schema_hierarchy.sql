@@ -1,5 +1,5 @@
 -- ====================================================================
--- DRIVESETU SINGLE TABLE RTO ARCHITECTURE SCHEMA (rto_info)
+-- DRIVESETU SINGLE TABLE RTO ARCHITECTURE SCHEMA & RLS SECURITY (rto_info)
 -- Copy and paste this code into your Supabase SQL Editor and click "RUN"
 -- ====================================================================
 
@@ -36,7 +36,43 @@ CREATE TABLE IF NOT EXISTS public.rto_info (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Citizen Profiles Table (Untouched & Retained Separately)
+-- ====================================================================
+-- 3. ENABLE ROW LEVEL SECURITY (RLS) & ACCESS CONTROL
+-- ====================================================================
+
+-- Enable RLS on public.rto_info
+ALTER TABLE public.rto_info ENABLE ROW LEVEL SECURITY;
+
+-- Revoke ALL permissions from unauthenticated / anonymous users
+REVOKE ALL ON TABLE public.rto_info FROM anon;
+REVOKE ALL ON TABLE public.rto_info FROM public;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Service role full access on rto_info" ON public.rto_info;
+DROP POLICY IF EXISTS "Authenticated RTO officers can view rto_info" ON public.rto_info;
+
+-- Policy 1: Service Role has full access (Used by backend server supabaseAdmin)
+CREATE POLICY "Service role full access on rto_info"
+    ON public.rto_info
+    FOR ALL
+    TO service_role
+    USING (true)
+    WITH CHECK (true);
+
+-- Policy 2: Authenticated RTO Officers can view RTO office information
+CREATE POLICY "Authenticated RTO officers can view rto_info"
+    ON public.rto_info
+    FOR SELECT
+    TO authenticated
+    USING (
+        auth.jwt() ->> 'email' = officer_email
+        OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('RTO_OFFICER', 'SUPER_ADMIN', 'ADMIN')
+    );
+
+-- 4. Delete demo/test row containing "officer01"
+DELETE FROM public.rto_info WHERE officer_id = 'officer01' OR officer_email LIKE '%officer01%';
+
+-- 5. Citizen Tables (Untouched & Retained Separately)
 CREATE TABLE IF NOT EXISTS public.citizen_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name VARCHAR(255) NOT NULL,
@@ -50,7 +86,6 @@ CREATE TABLE IF NOT EXISTS public.citizen_profiles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Applications Table (Untouched & Retained Separately)
 CREATE TABLE IF NOT EXISTS public.applications (
     id VARCHAR(100) PRIMARY KEY,
     citizen_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -62,7 +97,6 @@ CREATE TABLE IF NOT EXISTS public.applications (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Application Documents Table (Untouched & Retained Separately)
 CREATE TABLE IF NOT EXISTS public.application_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id VARCHAR(100) REFERENCES public.applications(id) ON DELETE CASCADE,
@@ -73,7 +107,6 @@ CREATE TABLE IF NOT EXISTS public.application_documents (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Audit Logs Table (Untouched & Retained Separately)
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id VARCHAR(100),
@@ -86,6 +119,5 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Grant Table Permissions
+-- Grant permissions for service_role & postgres
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
