@@ -345,6 +345,66 @@ async function fetchUserFiles() {
  * Sync Citizen Application Data & Document Storage Paths to Supabase Tables (citizen_documents & citizen_info)
  */
 async function syncApplicationToSupabase(app) {
+    if (!app || !app.id) return;
+    
+    var details = app.applicantDetails || {};
+    var service = app.serviceDetails || {};
+    var docs = app.documents || [];
+    var evidence = app.testEvidence || {};
+
+    var cleanEmail = (app.citizenId || details.email || '').trim().toLowerCase();
+    var cleanName = (app.name || details.fullName || 'Citizen Applicant').trim();
+    var cleanMobile = (details.mobile || service.mobile || app.mobile || '').trim();
+    var cleanAddress = (details.address || service.address || app.address || '').trim();
+    var cleanAadhaar = (service.aadhaarNumber || details.aadhaarNumber || app.aadhaarNumber || '').trim();
+    var cleanRto = (service.rtoCode || app.allocatedRtoCode || 'TG-03').trim();
+
+    var identityPath = '';
+    var addressPath = '';
+    var medicalPath = '';
+
+    docs.forEach(function(d) {
+        var fileName = d.fileName || d.name || '';
+        if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport' || d.id === 'defaced_dl') {
+            identityPath = fileName;
+        } else if (d.id === 'proof_address' || d.id === 'utility' || d.id === 'photo' || d.id === 'recent_photo' || d.id === 'photo_replacement') {
+            addressPath = fileName;
+        } else if (d.id === 'form_1a' || d.id === 'medical' || d.id === 'form_1' || d.id === 'form_5') {
+            medicalPath = fileName;
+        } else if (!identityPath) {
+            identityPath = fileName;
+        } else if (!addressPath) {
+            addressPath = fileName;
+        } else if (!medicalPath) {
+            medicalPath = fileName;
+        }
+    });
+
+    var videoPath = (evidence && evidence.video) ? (evidence.video.fileName || '') : '';
+    var aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
+
+    var docPayload = {
+        full_name: cleanName,
+        email: cleanEmail || 'citizen1@gmail.com',
+        mobile: cleanMobile || null,
+        address: cleanAddress || null,
+        aadhaar_number: cleanAadhaar || null,
+        application_id: app.id,
+        application_type: app.type || "Learner's Licence",
+        application_status: app.status || 'Submitted',
+        rto_code: cleanRto,
+        proof_identity_doc_path: identityPath || null,
+        proof_address_doc_path: addressPath || null,
+        medical_certificate_doc_path: medicalPath || null,
+        test_video_path: videoPath || null,
+        ai_report_path: aiReportPath || null,
+        test_result: app.status === 'Approved' ? 'PASS' : (app.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
+        updated_at: new Date().toISOString()
+    };
+
+    console.log("🚀 Syncing Live Application Data directly to Supabase citizen_documents:", docPayload);
+
+    // 1. Primary Sync via Backend API (Service Role)
     try {
         const resp = await fetch('/api/submit-citizen-application', {
             method: 'POST',
@@ -353,78 +413,28 @@ async function syncApplicationToSupabase(app) {
         });
         const result = await resp.json();
         if (resp.ok && result.success) {
-            console.log("✅ Application & Document Storage Paths saved to Supabase via server API");
+            console.log("✅ Application & Documents successfully stored in Supabase citizen_documents via server API");
             return result;
         }
-    } catch(e) {}
+    } catch(apiErr) {
+        console.warn("Backend API sync warning:", apiErr);
+    }
 
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-
-    try {
-        const { data: authData } = await supabaseClient.auth.getUser();
-        const user = authData ? authData.user : null;
-        if (!user) return;
-
-        const details = app.applicantDetails || {};
-        const service = app.serviceDetails || {};
-        const docs = app.documents || [];
-        const evidence = app.testEvidence || {};
-
-        let identityPath = '';
-        let addressPath = '';
-        let medicalPath = '';
-
-        docs.forEach(function(d) {
-            if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport') {
-                identityPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/identity_proof.pdf');
-            } else if (d.id === 'proof_address' || d.id === 'utility') {
-                addressPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/address_proof.pdf');
-            } else if (d.id === 'form_1a' || d.id === 'medical') {
-                medicalPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/medical_certificate.pdf');
+    // 2. Direct Browser Client Fallback
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('citizen_documents')
+                .insert([docPayload]);
+                
+            if (error) {
+                console.warn("Direct citizen_documents insert retry with upsert:", error.message);
+                await supabaseClient.from('citizen_documents').upsert(docPayload, { onConflict: 'application_id' });
             }
-        });
-
-        let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || ('citizen-documents/' + user.id + '/driving_test.mp4')) : '';
-        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || ('citizen-documents/' + user.id + '/ai_analysis_report.pdf')) : '';
-
-        // 1. Sync to public.citizen_info
-        try {
-            await supabaseClient.from('citizen_info').upsert({
-                user_id: user.id,
-                full_name: app.name || details.fullName || 'Citizen Applicant',
-                email: app.citizenId || details.email || user.email,
-                mobile: details.mobile || service.mobile || '',
-                address: details.address || service.address || '',
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-        } catch(iErr) {}
-
-        // 2. Sync to public.citizen_documents
-        try {
-            await supabaseClient.from('citizen_documents').upsert({
-                user_id: user.id,
-                full_name: app.name || details.fullName || 'Citizen Applicant',
-                email: app.citizenId || details.email || user.email,
-                mobile: details.mobile || service.mobile || '',
-                address: details.address || service.address || '',
-                aadhaar_number: service.aadhaarNumber || '',
-                application_id: app.id,
-                application_type: app.type,
-                application_status: app.status || 'Submitted',
-                rto_code: service.rtoCode || app.allocatedRtoCode || 'TG-03',
-                proof_identity_doc_path: identityPath || null,
-                proof_address_doc_path: addressPath || null,
-                medical_certificate_doc_path: medicalPath || null,
-                test_video_path: videoPath || null,
-                ai_report_path: aiReportPath || null,
-                test_result: app.status === 'Approved' ? 'PASS' : (app.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_id' });
-        } catch(dErr) {}
-
-        console.log("✅ Application & Document Storage Paths synced to Supabase (citizen_documents & citizen_info)");
-    } catch (e) {
-        console.error("Supabase Application Sync Error:", e);
+            console.log("✅ Application & Documents saved to Supabase citizen_documents table directly from client");
+        } catch(clientErr) {
+            console.error("Direct Supabase insert error:", clientErr);
+        }
     }
 }
 
