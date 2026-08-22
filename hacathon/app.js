@@ -6001,6 +6001,45 @@ function toggleDuplicateFields() {
 
 // ─── SERVICE FORMS SUBMISSION & SUCCESS RENDERING ───
 
+function checkCitizenLLEligibility(session) {
+    return { isEligible: true };
+}
+
+function checkCitizenDLEligibility(session) {
+    return { isEligible: true };
+}
+
+function allocateTestSlot(prefDate, prefWindow) {
+    var startT = '10:00 AM';
+    if (prefWindow && typeof prefWindow === 'string' && prefWindow.indexOf('-') !== -1) {
+        startT = prefWindow.split('-')[0].trim();
+    } else if (prefWindow) {
+        startT = prefWindow.trim();
+    }
+    return {
+        date: prefDate || new Date().toISOString().split('T')[0],
+        time: startT
+    };
+}
+
+function getDocumentConfigs(licenceType) {
+    if (licenceType === "Learner's Licence") {
+        return [
+            { id: 'proof_identity', name: 'Aadhaar Document', type: 'required' },
+            { id: 'proof_address', name: 'Recent Photograph', type: 'required' }
+        ];
+    } else if (licenceType === "Permanent Licence") {
+        return [
+            { id: 'proof_identity', name: 'Learner Licence Copy', type: 'required' },
+            { id: 'proof_address', name: 'Address Proof', type: 'required' }
+        ];
+    }
+    return [
+        { id: 'proof_identity', name: 'Identity Proof', type: 'required' },
+        { id: 'proof_address', name: 'Address Proof', type: 'required' }
+    ];
+}
+
 function submitServiceForm(licenceType) {
     var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null)
         || safeParseJSON(localStorage.getItem('citizenSession'), null)
