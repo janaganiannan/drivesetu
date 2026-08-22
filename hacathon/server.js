@@ -162,17 +162,29 @@ app.post('/api/submit-citizen-application', async (req, res) => {
         let medicalPath = '';
 
         docs.forEach(function(d) {
-            if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport') {
-                identityPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/identity_proof.pdf');
-            } else if (d.id === 'proof_address' || d.id === 'utility') {
-                addressPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/address_proof.pdf');
-            } else if (d.id === 'form_1a' || d.id === 'medical') {
-                medicalPath = d.fileName || d.name || ('citizen-documents/' + (userId || 'anon') + '/medical_certificate.pdf');
+            const fileName = d.fileName || d.name || '';
+            if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport' || d.id === 'defaced_dl') {
+                identityPath = fileName;
+            } else if (d.id === 'proof_address' || d.id === 'utility' || d.id === 'photo' || d.id === 'recent_photo' || d.id === 'photo_replacement') {
+                addressPath = fileName;
+            } else if (d.id === 'form_1a' || d.id === 'medical' || d.id === 'form_1' || d.id === 'form_5') {
+                medicalPath = fileName;
+            } else if (!identityPath) {
+                identityPath = fileName;
+            } else if (!addressPath) {
+                addressPath = fileName;
+            } else if (!medicalPath) {
+                medicalPath = fileName;
             }
         });
 
-        let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || ('citizen-documents/' + (userId || 'anon') + '/driving_test.mp4')) : '';
-        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || ('citizen-documents/' + (userId || 'anon') + '/ai_analysis_report.pdf')) : '';
+        let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || '') : '';
+        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
+
+        const cleanMobile = (details.mobile || service.mobile || application.mobile || '').trim();
+        const cleanAddress = (details.address || service.address || application.address || '').trim();
+        const cleanAadhaar = (service.aadhaarNumber || details.aadhaarNumber || application.aadhaarNumber || '').trim();
+        const cleanRto = (service.rtoCode || application.allocatedRtoCode || 'TG-03').trim();
 
         // 3. Upsert into public.citizen_info
         if (userId) {
@@ -181,25 +193,27 @@ app.post('/api/submit-citizen-application', async (req, res) => {
                     user_id: userId,
                     full_name: cleanName,
                     email: cleanEmail,
-                    mobile: details.mobile || service.mobile || '',
-                    address: details.address || service.address || '',
+                    mobile: cleanMobile || null,
+                    address: cleanAddress || null,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'user_id' });
-            } catch(iErr) {}
+            } catch(iErr) {
+                console.warn("citizen_info upsert warning:", iErr.message);
+            }
         }
 
-        // 4. Upsert into public.citizen_documents
+        // 4. Insert into public.citizen_documents
         const docPayload = {
             user_id: userId,
             full_name: cleanName,
             email: cleanEmail,
-            mobile: details.mobile || service.mobile || '',
-            address: details.address || service.address || '',
-            aadhaar_number: service.aadhaarNumber || '',
+            mobile: cleanMobile || null,
+            address: cleanAddress || null,
+            aadhaar_number: cleanAadhaar || null,
             application_id: application.id,
-            application_type: application.type,
+            application_type: application.type || "Learner's Licence",
             application_status: application.status || 'Submitted',
-            rto_code: service.rtoCode || application.allocatedRtoCode || 'TG-03',
+            rto_code: cleanRto,
             proof_identity_doc_path: identityPath || null,
             proof_address_doc_path: addressPath || null,
             medical_certificate_doc_path: medicalPath || null,
@@ -215,6 +229,8 @@ app.post('/api/submit-citizen-application', async (req, res) => {
 
         if (dbError) {
             console.error("Error inserting into citizen_documents:", dbError.message);
+            // Fallback: try upsert
+            await supabaseAdmin.from('citizen_documents').upsert(docPayload, { onConflict: 'application_id' });
         }
 
         return res.json({ success: true, applicationId: application.id });
