@@ -6408,6 +6408,9 @@ function submitServiceForm(licenceType) {
 
     apps.unshift(newApp);
     saveStoredApplications(apps);
+    if (typeof syncApplicationToSupabase === 'function') {
+        syncApplicationToSupabase(newApp);
+    }
     
     var newReview = {
         appId: newId,

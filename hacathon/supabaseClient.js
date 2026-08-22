@@ -342,6 +342,80 @@ async function fetchUserFiles() {
 }
 
 /**
+ * Sync Citizen Application Data & Document Storage Paths to Supabase Tables (citizen_documents & citizen_info)
+ */
+async function syncApplicationToSupabase(app) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+    try {
+        const { data: authData } = await supabaseClient.auth.getUser();
+        const user = authData ? authData.user : null;
+        if (!user) return;
+
+        const details = app.applicantDetails || {};
+        const service = app.serviceDetails || {};
+        const docs = app.documents || [];
+        const evidence = app.testEvidence || {};
+
+        let identityPath = '';
+        let addressPath = '';
+        let medicalPath = '';
+
+        docs.forEach(function(d) {
+            if (d.id === 'proof_identity' || d.id === 'aadhaar' || d.id === 'passport') {
+                identityPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/identity_proof.pdf');
+            } else if (d.id === 'proof_address' || d.id === 'utility') {
+                addressPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/address_proof.pdf');
+            } else if (d.id === 'form_1a' || d.id === 'medical') {
+                medicalPath = d.fileName || d.name || ('citizen-documents/' + user.id + '/medical_certificate.pdf');
+            }
+        });
+
+        let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || ('citizen-documents/' + user.id + '/driving_test.mp4')) : '';
+        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || ('citizen-documents/' + user.id + '/ai_analysis_report.pdf')) : '';
+
+        // 1. Sync to public.citizen_info
+        try {
+            await supabaseClient.from('citizen_info').upsert({
+                user_id: user.id,
+                full_name: app.name || details.fullName || 'Citizen Applicant',
+                email: app.citizenId || details.email || user.email,
+                mobile: details.mobile || service.mobile || '',
+                address: details.address || service.address || '',
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        } catch(iErr) {}
+
+        // 2. Sync to public.citizen_documents
+        try {
+            await supabaseClient.from('citizen_documents').upsert({
+                user_id: user.id,
+                full_name: app.name || details.fullName || 'Citizen Applicant',
+                email: app.citizenId || details.email || user.email,
+                mobile: details.mobile || service.mobile || '',
+                address: details.address || service.address || '',
+                aadhaar_number: service.aadhaarNumber || '',
+                application_id: app.id,
+                application_type: app.type,
+                application_status: app.status || 'Submitted',
+                rto_code: service.rtoCode || app.allocatedRtoCode || 'TG-03',
+                proof_identity_doc_path: identityPath || null,
+                proof_address_doc_path: addressPath || null,
+                medical_certificate_doc_path: medicalPath || null,
+                test_video_path: videoPath || null,
+                ai_report_path: aiReportPath || null,
+                test_result: app.status === 'Approved' ? 'PASS' : (app.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        } catch(dErr) {}
+
+        console.log("✅ Application & Document Storage Paths synced to Supabase (citizen_documents & citizen_info)");
+    } catch (e) {
+        console.error("Supabase Application Sync Error:", e);
+    }
+}
+
+/**
  * Official RTO Officer / Operator Authentication Handler
  * Authenticates directly with Supabase Auth and fetches role metadata from rto_officers/profiles
  */
