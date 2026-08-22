@@ -1,16 +1,16 @@
 :root {
-    --primary: #2563eb;
-    --primary-dark: #1d4ed8;
-    --primary-light: #eff6ff;
-    --primary-mid: #bfdbfe;
-    --bg: #f8fafc;
+    --primary: #059669;
+    --primary-dark: #047857;
+    --primary-light: #ecfdf5;
+    --primary-mid: #a7f3d0;
+    --bg: #ffffff;
     --sidebar-bg: #ffffff;
     --card-bg: #ffffff;
     --text-main: #0f172a;
     --text-muted: #64748b;
     --border: #e2e8f0;
-    --shadow: 0 1px 6px rgba(0,0,0,0.06);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+    --shadow: 0 1px 6px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 18px;

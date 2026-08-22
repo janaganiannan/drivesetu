@@ -593,10 +593,10 @@ function renderAdminDashboard() {
 
     var pendingCount = (pendingReqs || []).filter(function(r) { return r.status === 'Pending'; }).length;
 
-    var pendingReqsHTML = '<div class="card animate-in" style="margin-bottom:1.25rem; border:1px solid #bfdbfe; background:linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);">' +
+    var pendingReqsHTML = '<div class="card animate-in" style="margin-bottom:1.25rem; border:1px solid #a7f3d0; background:linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);">' +
         '<div class="card-title flex-between">' +
-            '<span><i class="fa-solid fa-user-clock" style="color:#2563eb; margin-right:0.4rem;"></i> Pending RTO Employee Registrations (Portal Admin Approval Queue)</span>' +
-            '<span class="badge" style="background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; font-weight:700;">' + pendingCount + ' Pending Requests</span>' +
+            '<span><i class="fa-solid fa-user-clock" style="color:#059669; margin-right:0.4rem;"></i> Pending RTO Employee Registrations (Portal Admin Approval Queue)</span>' +
+            '<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-weight:700;">' + pendingCount + ' Pending Requests</span>' +
         '</div>' +
         '<div style="overflow-x:auto;">' +
             '<table class="data-table"><thead><tr>' +

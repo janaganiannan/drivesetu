@@ -201,12 +201,11 @@ app.post('/api/register-rto-office', async (req, res) => {
             return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
         }
 
-        // 1. Upsert RTO Office in rto_offices table
-        let officeRecord = null;
+        // 1. Upsert RTO Office & Officer details in single rto_info table
         try {
-            const { data: offData, error: offErr } = await supabaseAdmin.from('rto_offices').upsert({
+            await supabaseAdmin.from('rto_info').upsert({
+                rto_office_name: officeName,
                 rto_code: code,
-                office_name: officeName,
                 rto_type: rtoType || 'Regional Transport Office',
                 state: state || 'Telangana',
                 district: district || 'General',
@@ -214,13 +213,13 @@ app.post('/api/register-rto-office', async (req, res) => {
                 pin_code: pinCode || '',
                 office_phone: officePhone || '',
                 office_email: officeEmail || cleanEmail,
-                is_active: true,
+                officer_full_name: cleanOfficerName,
+                officer_id: offId,
+                officer_designation: designation || 'RTO Officer',
+                officer_mobile: officialMobile || '',
+                officer_email: cleanEmail,
                 updated_at: new Date().toISOString()
-            }, { onConflict: 'rto_code' }).select();
-
-            if (!offErr && offData && offData.length > 0) {
-                officeRecord = offData[0];
-            }
+            }, { onConflict: 'rto_code' });
         } catch (e) {}
 
         // 2. Check or Create Auth user in Supabase Auth
@@ -249,25 +248,7 @@ app.post('/api/register-rto-office', async (req, res) => {
             userId = newUser.user.id;
         }
 
-        // 3. Upsert Officer in rto_officers table linked to rto_office_id
-        try {
-            await supabaseAdmin.from('rto_officers').upsert({
-                id: userId,
-                rto_office_id: officeRecord ? officeRecord.id : null,
-                officer_id: offId,
-                full_name: cleanOfficerName,
-                designation: designation || 'RTO Officer',
-                official_email: cleanEmail,
-                official_mobile: officialMobile || '',
-                rto_code: code,
-                rto_name: officeName,
-                role: 'RTO_OFFICER',
-                account_type: 'RTO Officer',
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'id' });
-        } catch (rErr) {}
-
-        // 4. Upsert in profiles
+        // 3. Upsert in profiles table
         try {
             await supabaseAdmin.from('profiles').upsert({
                 id: userId,
@@ -279,31 +260,9 @@ app.post('/api/register-rto-office', async (req, res) => {
             }, { onConflict: 'id' });
         } catch (pErr) {}
 
-        // 5. Upsert into rto_employfiles table
-        try {
-            await supabaseAdmin.from('rto_employfiles').upsert({
-                user_id: userId,
-                email: cleanEmail,
-                full_name: cleanOfficerName,
-                role: 'RTO_OFFICER',
-                rto_code: code,
-                rto_name: officeName,
-                officer_id: offId,
-                designation: designation || 'RTO Officer',
-                mobile: officialMobile || '',
-                office_address: officeAddress || '',
-                account_type: 'RTO Officer Profile',
-                details_json: {
-                    officeName, rtoCode: code, rtoType, state, district, officeAddress, pinCode, officePhone, officeEmail,
-                    officerName: cleanOfficerName, officerId: offId, designation, officialEmail: cleanEmail, officialMobile
-                },
-                updated_at: new Date().toISOString()
-            });
-        } catch (fErr) {}
-
         return res.json({
             success: true,
-            user: { id: userId, email: cleanEmail, role: 'RTO_OFFICER', rtoCode: code, officeId: officeRecord ? officeRecord.id : null }
+            user: { id: userId, email: cleanEmail, role: 'RTO_OFFICER', rtoCode: code }
         });
     } catch (err) {
         return res.status(500).json({ error: err.message || 'RTO Office registration failed.' });
@@ -562,35 +521,25 @@ app.post('/api/admin/approve-rto-request', async (req, res) => {
                 userId = newUser.user.id;
             }
 
-            // Insert/Update into rto_officers / rto_employees / profiles / rto_employfiles
+            // Insert/Update into rto_info table
             try {
-                await supabaseAdmin.from('rto_officers').upsert({
-                    id: userId,
-                    official_email: cleanEmail,
-                    full_name: empName,
-                    role: empRole,
+                await supabaseAdmin.from('rto_info').upsert({
+                    rto_office_name: offName,
                     rto_code: code,
-                    rto_name: offName,
+                    rto_type: 'Regional Transport Office',
+                    state: 'Telangana',
+                    district: 'General',
+                    office_address: 'RTO Office Premises',
+                    pin_code: '',
+                    office_phone: '',
+                    office_email: cleanEmail,
+                    officer_full_name: empName,
                     officer_id: offId,
-                    designation: targetReq.designation || 'RTO Officer',
-                    official_mobile: targetReq.mobile || '',
-                    account_type: 'RTO Officer',
+                    officer_designation: targetReq.designation || 'RTO Officer',
+                    officer_mobile: targetReq.mobile || '',
+                    officer_email: cleanEmail,
                     updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-            } catch (e) {}
-
-            try {
-                await supabaseAdmin.from('rto_employees').upsert({
-                    id: userId,
-                    official_email: cleanEmail,
-                    full_name: empName,
-                    role: empRole,
-                    employee_id: offId,
-                    designation: targetReq.designation || 'RTO Officer',
-                    official_mobile: targetReq.mobile || '',
-                    account_status: 'Active',
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
+                }, { onConflict: 'rto_code' });
             } catch (e) {}
 
             try {
@@ -602,29 +551,6 @@ app.post('/api/admin/approve-rto-request', async (req, res) => {
                     full_name: empName,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
-            } catch (e) {}
-
-            try {
-                await supabaseAdmin.from('rto_employfiles').upsert({
-                    user_id: userId,
-                    email: cleanEmail,
-                    full_name: empName,
-                    role: empRole,
-                    rto_code: code,
-                    rto_name: offName,
-                    officer_id: offId,
-                    designation: targetReq.designation || 'RTO Officer',
-                    mobile: targetReq.mobile || '',
-                    account_type: 'RTO Employee Profile',
-                    updated_at: new Date().toISOString()
-                });
-            } catch (e) {}
-
-            // Update status in rto_registration_requests table
-            try {
-                await supabaseAdmin.from('rto_registration_requests')
-                    .update({ status: 'Approved', updated_at: new Date().toISOString() })
-                    .eq('email', cleanEmail);
             } catch (e) {}
         }
 
