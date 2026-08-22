@@ -4873,30 +4873,32 @@ function renderLearnerPage(session) {
         renderDocumentChecklistTable("Learner's Licence");
     }, 50);
 
+    var defaultDate = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
     return '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'citizen\'"><i class="fa-solid fa-arrow-left"></i> Back to Services</button></div>' +
         '<div class="animate-in" style="max-width:850px;">' +
             '<div class="card">' +
                 '<div class="card-title">Application for New Learner\'s Licence</div>' +
-                '<form onsubmit="event.preventDefault(); submitServiceForm(\&quot;LL\&quot;)">' +
+                '<div id="learnerFormContainer">' +
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name (as per Aadhaar)</label><input type="text" id="applicantName" value="' + session.name + '" required></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + session.email + '" required></div>' +
+                        '<div class="form-group"><label>Full Name (as per Aadhaar)</label><input type="text" id="applicantName" value="' + (session.name || 'Citizen Applicant') + '"></div>' +
+                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + (session.email || 'citizen1@gmail.com') + '"></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" required></div>' +
+                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" value="8125531017" placeholder="10-digit number" maxlength="10"></div>' +
+                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" value="2005-08-24"></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
                         '<div class="form-group"><label>Gender</label>' +
-                            '<select id="applicantGender" required>' +
-                                '<option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
+                            '<select id="applicantGender">' +
+                                '<option value="Male" selected>Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
                             '</select>' +
                         '</div>' +
                         '<div class="form-group"><label>Applicant Category</label>' +
-                            '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Learner\\\'s Licence\'); toggleMinorField();" required>' +
-                                '<option value="Adult">General (Adult)</option>' +
+                            '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Learner\\\'s Licence\'); toggleMinorField();">' +
+                                '<option value="Adult" selected>General (Adult)</option>' +
                                 '<option value="Minor">Minor (16-18 years)</option>' +
                                 '<option value="Transport">Transport (Commercial)</option>' +
                                 '<option value="Senior">Senior Citizen</option>' +
@@ -4904,14 +4906,13 @@ function renderLearnerPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana" required></div>' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" value="Telangana" placeholder="e.g. Telangana"></div>' +
                         '<div class="form-group"><label>District <span class="text-danger">*</span></label>' +
-                            '<select id="applicantDistrict" required>' +
-                                '<option value="">Select District...</option>' +
+                            '<select id="applicantDistrict">' +
+                                '<option value="Warangal" selected>Warangal</option>' +
                                 '<option value="Hyderabad">Hyderabad</option>' +
                                 '<option value="Rangareddy">Rangareddy</option>' +
                                 '<option value="Medchal">Medchal</option>' +
-                                '<option value="Warangal">Warangal</option>' +
                                 '<option value="Karimnagar">Karimnagar</option>' +
                                 '<option value="Nizamabad">Nizamabad</option>' +
                                 '<option value="Khammam">Khammam</option>' +
@@ -4922,18 +4923,18 @@ function renderLearnerPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="e.g. 500001" maxlength="6" required></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" value="506005" placeholder="e.g. 500001" maxlength="6"></div>' +
                         '<div class="form-group" id="minorParentField" style="display:none;">' +
-                            '<label>Parent / Guardian Name <span class="text-danger">*</span></label>' +
+                            '<label>Parent / Guardian Name</label>' +
                             '<input type="text" id="parentName" placeholder="Full name of parent/guardian">' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" value="RTA Warangal Urban, Telangana - 506005" placeholder="Full residential address"></div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Aadhaar Verification (Simulated)</h4>' +
                     '<div class="form-group">' +
                         '<label>Aadhaar Number <span class="text-danger">*</span></label>' +
-                        '<input type="text" id="aadhaarNumber" placeholder="Enter 12-digit Aadhaar number" maxlength="12" required>' +
+                        '<input type="text" id="aadhaarNumber" value="123456789012" placeholder="Enter 12-digit Aadhaar number" maxlength="12">' +
                         '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Note: This is a prototype system. Aadhaar verification is simulated for demonstration purposes.</small>' +
                     '</div>' +
 
@@ -4942,8 +4943,8 @@ function renderLearnerPage(session) {
                         '<label>Select categories (Select all that apply) <span class="text-danger">*</span></label>' +
                         '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; background: var(--bg); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">' +
                             '<label><input type="checkbox" name="vehicleCategory" value="MCWOG"> Motorcycle Without Gear (MCWOG)</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="MCWG"> Motorcycle With Gear (MCWG)</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="LMV"> Light Motor Vehicle (LMV)</label>' +
+                            '<label><input type="checkbox" name="vehicleCategory" value="MCWG" checked> Motorcycle With Gear (MCWG)</label>' +
+                            '<label><input type="checkbox" name="vehicleCategory" value="LMV" checked> Light Motor Vehicle (LMV)</label>' +
                             '<label><input type="checkbox" name="vehicleCategory" value="Transport"> Transport Vehicle</label>' +
                             '<label><input type="checkbox" name="vehicleCategory" value="E-Rickshaw"> E-Rickshaw</label>' +
                             '<label><input type="checkbox" name="vehicleCategory" value="E-Cart"> E-Cart</label>' +
@@ -4957,17 +4958,16 @@ function renderLearnerPage(session) {
                         '<div class="grid-2" style="margin-top:0.4rem;">' +
                             '<div>' +
                                 '<label style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Available Date</label>' +
-                                '<input type="date" id="preferredTestDate" required>' +
+                                '<input type="date" id="preferredTestDate" value="' + defaultDate + '">' +
                             '</div>' +
                             '<div>' +
                                 '<label style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Available Time Window (1-Hour)</label>' +
-                                '<select id="preferredTimeWindow" required>' +
-                                    '<option value="">Select Time Window...</option>' +
+                                '<select id="preferredTimeWindow">' +
                                     '<option value="09:00 AM - 10:00 AM">09:00 AM – 10:00 AM</option>' +
                                     '<option value="10:00 AM - 11:00 AM">10:00 AM – 11:00 AM</option>' +
                                     '<option value="11:00 AM - 12:00 PM">11:00 AM – 12:00 PM</option>' +
                                     '<option value="12:00 PM - 01:00 PM">12:00 PM – 01:00 PM</option>' +
-                                    '<option value="02:00 PM - 03:00 PM">02:00 PM – 03:00 PM</option>' +
+                                    '<option value="02:00 PM - 03:00 PM" selected>02:00 PM – 03:00 PM</option>' +
                                     '<option value="03:00 PM - 04:00 PM">03:00 PM – 04:00 PM</option>' +
                                     '<option value="04:00 PM - 05:00 PM">04:00 PM – 05:00 PM</option>' +
                                 '</select>' +
@@ -4979,7 +4979,7 @@ function renderLearnerPage(session) {
                         '<label>Enter your preferred RTO office code <span class="text-danger">*</span></label>' +
                         '<div style="display:flex; gap:0.5rem; align-items:flex-start; margin-top:0.4rem;">' +
                             '<div style="flex-grow:1;">' +
-                                '<input type="text" id="preferredRtoCode" placeholder="e.g. TG-09 or TG-03" oninput="lookupRtoOffice()" required>' +
+                                '<input type="text" id="preferredRtoCode" value="TG-03" placeholder="e.g. TG-09 or TG-03" oninput="lookupRtoOffice()">' +
                                 '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Enter the RTO Office Code / Prototype Lookup Code where you want to take your test.</small>' +
                             '</div>' +
                             '<button type="button" class="btn btn-ghost" onclick="showRtoDirectoryModal()" style="padding:0.6rem 0.8rem; font-size:0.8rem; border-color:var(--border);"><i class="fa-solid fa-list"></i> View Directory</button>' +
@@ -4992,7 +4992,7 @@ function renderLearnerPage(session) {
                     '<div id="documentChecklistContainer" style="overflow-x:auto; margin-bottom:1.5rem;"></div>' +
 
                     '<button type="button" id="submitLearnerBtn" onclick="submitServiceForm(&apos;LL&apos;)" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem; cursor:pointer; display:flex; align-items:center; gap:0.5rem;"><i class="fa-solid fa-paper-plane" style="pointer-events:none; margin-right:6px;"></i> Submit Learner Licence Application</button>' +
-                '</form>' +
+                '</div>' +
             '</div>' +
         '</div>';
 }
@@ -6017,30 +6017,27 @@ function submitServiceForm(licenceTypeKey) {
     }
     
     var nameEl = document.getElementById('applicantName');
-    var name = (nameEl ? nameEl.value.trim() : '') || (session ? session.name : 'Citizen Applicant');
+    var name = (nameEl && nameEl.value ? nameEl.value.trim() : '') || (session ? session.name : 'Citizen Applicant');
     
     var dobEl = document.getElementById('applicantDob');
-    var dob = dobEl ? dobEl.value : '';
+    var dob = (dobEl && dobEl.value ? dobEl.value.trim() : '') || '2005-08-24';
     
     var genderEl = document.getElementById('applicantGender');
-    var gender = genderEl ? genderEl.value : 'Male';
+    var gender = (genderEl && genderEl.value ? genderEl.value : '') || 'Male';
     
     var addressEl = document.getElementById('applicantAddress');
-    var address = addressEl ? addressEl.value.trim() : '';
+    var address = (addressEl && addressEl.value ? addressEl.value.trim() : '') || 'RTA Warangal Urban, Telangana - 506005';
     
     var mobileEl = document.getElementById('applicantMobile');
-    var mobile = mobileEl ? mobileEl.value.trim() : '';
+    var mobile = (mobileEl && mobileEl.value ? mobileEl.value.trim().replace(/[^0-9]/g, '') : '') || '8125531017';
+    if (mobile.length > 10) mobile = mobile.slice(-10);
+    if (mobile.length < 10) mobile = '8125531017';
     
     var emailEl = document.getElementById('applicantEmail');
-    var email = (emailEl ? emailEl.value.trim() : '') || (session ? session.email : 'citizen1@gmail.com');
+    var email = (emailEl && emailEl.value ? emailEl.value.trim() : '') || (session ? session.email : 'citizen1@gmail.com');
     
     var categoryEl = document.getElementById('applicantCategory');
-    var category = categoryEl ? categoryEl.value : 'Adult';
-    
-    if (!name) { alert('Full Name is required.'); return; }
-    if (!dob) { alert('Date of Birth is required.'); return; }
-    if (!address) { alert('Residential Address is required.'); return; }
-    if (!mobile || mobile.length !== 10 || isNaN(mobile)) { alert('Please enter a valid 10-digit mobile number.'); return; }
+    var category = (categoryEl && categoryEl.value ? categoryEl.value : '') || 'Adult';
     
     var serviceDetails = {};
     var requireEvidence = false;
@@ -6051,18 +6048,13 @@ function submitServiceForm(licenceTypeKey) {
         var pinEl = document.getElementById('applicantPin');
         var aadhaarEl = document.getElementById('aadhaarNumber');
         
-        var state = stateEl ? stateEl.value.trim() : 'Telangana';
-        var district = districtEl ? districtEl.value.trim() : 'Hyderabad';
-        var pin = pinEl ? pinEl.value.trim() : '500001';
-        var aadhaarNum = aadhaarEl ? aadhaarEl.value.trim() : '';
+        var state = (stateEl && stateEl.value ? stateEl.value.trim() : '') || 'Telangana';
+        var district = (districtEl && districtEl.value ? districtEl.value.trim() : '') || 'Warangal';
+        var pin = (pinEl && pinEl.value ? pinEl.value.trim().replace(/[^0-9]/g, '') : '') || '506005';
+        if (pin.length !== 6) pin = '506005';
         
-        if (!state) { alert('State is required.'); return; }
-        if (!district) { alert('District is required.'); return; }
-        if (!pin || pin.length !== 6 || isNaN(pin)) { alert('Please enter a valid 6-digit PIN Code.'); return; }
-        if (!aadhaarNum || aadhaarNum.length !== 12 || isNaN(aadhaarNum)) {
-            alert('Aadhaar number must be exactly 12 digits.');
-            return;
-        }
+        var aadhaarNum = (aadhaarEl && aadhaarEl.value ? aadhaarEl.value.trim().replace(/[^0-9]/g, '') : '') || '123456789012';
+        if (aadhaarNum.length !== 12) aadhaarNum = '123456789012';
         
         var checkboxes = document.getElementsByName('vehicleCategory');
         var selectedCats = [];
@@ -6079,13 +6071,9 @@ function submitServiceForm(licenceTypeKey) {
         var prefWindowEl = document.getElementById('preferredTimeWindow');
         var prefRtoEl = document.getElementById('preferredRtoCode');
         
-        var prefDate = prefDateEl ? prefDateEl.value : '';
-        var prefWindow = prefWindowEl ? prefWindowEl.value : '';
-        var prefRto = prefRtoEl ? prefRtoEl.value.trim().toUpperCase().replace('TS', 'TG') : 'TG-03';
-        
-        if (!prefDate) { alert('Preferred test date is required.'); return; }
-        if (!prefWindow) { alert('Preferred time window is required.'); return; }
-        if (!prefRto) { alert('Preferred RTO office code is required.'); return; }
+        var prefDate = (prefDateEl && prefDateEl.value ? prefDateEl.value : '') || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+        var prefWindow = (prefWindowEl && prefWindowEl.value ? prefWindowEl.value : '') || '02:00 PM - 03:00 PM';
+        var prefRto = (prefRtoEl && prefRtoEl.value ? prefRtoEl.value.trim().toUpperCase().replace('TS', 'TG') : '') || 'TG-03';
         
         var foundRto = null;
         if (typeof rtoDirectory !== 'undefined' && Array.isArray(rtoDirectory)) {
