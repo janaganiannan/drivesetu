@@ -8155,6 +8155,33 @@ function openCreateEmployeeModal(rtoCode, rtoOfficeId) {
     };
 }
 
+// ─── UNIVERSAL DELEGATED SUBMIT HANDLER (CAPTURE PHASE) ───
+document.addEventListener('click', function(e) {
+    if (!e || !e.target) return;
+    
+    var btn = null;
+    if (e.target.id && (e.target.id === 'submitLearnerBtn' || e.target.id === 'submitPermanentBtn' || e.target.id === 'submitAocBtn' || e.target.id === 'submitIdpBtn' || e.target.id === 'submitRenBtn' || e.target.id === 'submitDupBtn')) {
+        btn = e.target;
+    } else if (e.target.closest) {
+        btn = e.target.closest('#submitLearnerBtn, #submitPermanentBtn, #submitAocBtn, #submitIdpBtn, #submitRenBtn, #submitDupBtn, button[type="button"][onclick*="submitServiceForm"]');
+    }
+    
+    if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var btnId = btn.id || '';
+        if (btnId === 'submitLearnerBtn') submitServiceForm('LL');
+        else if (btnId === 'submitPermanentBtn') submitServiceForm('PL');
+        else if (btnId === 'submitAocBtn') submitServiceForm('AOC');
+        else if (btnId === 'submitIdpBtn') submitServiceForm('IDP');
+        else if (btnId === 'submitRenBtn') submitServiceForm('REN');
+        else if (btnId === 'submitDupBtn') submitServiceForm('DUP');
+        else {
+            submitServiceForm('LL');
+        }
+    }
+}, true);
+
 // ─── INIT ───
 window.addEventListener('hashchange', render);
 render();
