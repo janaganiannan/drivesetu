@@ -1598,48 +1598,17 @@ function render() {
             regHTML += '<span style="font-size:1.3rem;">DriveSetu</span>';
             regHTML += '</div></div>';
             regHTML += '<div class="login-card">';
-            
-            // Tab Switcher for Account Type
-            regHTML += '<div style="display:flex; border-bottom:2px solid #edf2f7; margin-bottom:1.25rem;">';
-            regHTML += '<button type="button" id="tabCitizenBtn" onclick="switchRegTab(\'citizen\')" style="flex:1; padding:0.75rem; border:none; background:none; font-weight:700; font-size:0.95rem; color:var(--primary); border-bottom:3px solid var(--primary); cursor:pointer;"><i class="ph ph-user"></i> Citizen Registration</button>';
-            regHTML += '<button type="button" id="tabOfficerBtn" onclick="switchRegTab(\'officer\')" style="flex:1; padding:0.75rem; border:none; background:none; font-weight:700; font-size:0.95rem; color:var(--text-muted); border-bottom:3px solid transparent; cursor:pointer;"><i class="fa-solid fa-building-flag"></i> RTO Officer Registration</button>';
-            regHTML += '</div>';
-
+            regHTML += '<h2 class="login-title" style="margin-bottom:0.25rem;"><i class="ph ph-user" style="color:var(--primary);"></i> Citizen Registration</h2>';
+            regHTML += '<p class="login-subtitle" style="margin-bottom:1.25rem;">Create a new Citizen Account to apply for & track driving licences</p>';
             regHTML += '<div id="registerAlert" style="display:none; padding:0.75rem; border-radius:6px; font-size:0.85rem; margin-bottom:1rem; text-align:left;"></div>';
 
-            // FORM 1: CITIZEN FORM
+            // CITIZEN REGISTRATION FORM
             regHTML += '<form id="registerForm" style="display:block;">';
-            regHTML += '<p class="login-subtitle" style="margin-bottom:1rem;">Create a new Citizen Account to apply for & track driving licences</p>';
             regHTML += '<div class="form-group"><label>Full Name *</label><input type="text" id="registerFullName" placeholder="Enter your full name" required></div>';
             regHTML += '<div class="form-group"><label>Email Address *</label><input type="email" id="registerEmail" placeholder="Enter your email address" required></div>';
             regHTML += '<div class="form-group"><label>Password *</label><input type="password" id="registerPassword" placeholder="Create a password (min 6 characters)" required minlength="6"></div>';
             regHTML += '<div class="form-group"><label>Confirm Password *</label><input type="password" id="registerConfirmPassword" placeholder="Confirm your password" required minlength="6"></div>';
             regHTML += '<button type="submit" class="btn btn-primary" id="submitRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem;"><i class="ph ph-user-plus"></i> Create Citizen Account</button>';
-            regHTML += '</form>';
-
-            // FORM 2: RTO OFFICER FORM
-            regHTML += '<form id="registerOfficerForm" style="display:none;">';
-            regHTML += '<p class="login-subtitle" style="margin-bottom:1rem;">Register for an RTO Portal Account (Requires Portal Admin Approval)</p>';
-            regHTML += '<div class="form-group"><label>Officer Full Name *</label><input type="text" id="offName" placeholder="e.g. Officer K. Rao" required></div>';
-            regHTML += '<div class="form-group" style="margin-bottom:0.75rem;"><label class="form-label" style="font-weight:600;">Requested RTO Role *</label>';
-            regHTML += '<select id="offRole" class="form-control" style="background:#f8fafc; font-weight:500;" required>';
-            regHTML += '<option value="REVIEWING_OFFICER">RTO Reviewing Officer / Evaluator</option>';
-            regHTML += '<option value="TEST_INSPECTOR">Driving Test Inspector</option>';
-            regHTML += '<option value="TEST_CENTRE_OPERATOR">Test Centre Operator</option>';
-            regHTML += '<option value="RTO_EMPLOYEE">RTO Assistant / Executive</option>';
-            regHTML += '<option value="SUPER_ADMIN">Super Administrator / Portal Admin</option>';
-            regHTML += '</select></div>';
-            regHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">';
-            regHTML += '<div><label class="form-label">RTO Number / Code *</label><select id="offRtoCode" class="form-control" required><option value="TG-03">TG-03 (Medchal / Hyd West)</option><option value="TG-05">TG-05 (Secunderabad / Hyd North)</option><option value="TG-08">TG-08 (Uppal / Rangareddy)</option><option value="TG-12">TG-12 (Sangareddy)</option></select></div>';
-            regHTML += '<div><label class="form-label">Officer ID No *</label><input type="text" id="offIdNo" class="form-control" placeholder="e.g. OFF-TG03-01" required></div>';
-            regHTML += '</div>';
-            regHTML += '<div class="form-group"><label>RTO Office Name</label><input type="text" id="offOfficeName" placeholder="RTA Office Location Name"></div>';
-            regHTML += '<div class="form-group"><label>Official Email Address *</label><input type="email" id="offEmail" placeholder="officer@drivesetu.com" required></div>';
-            regHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">';
-            regHTML += '<div><label class="form-label">Password *</label><input type="password" id="offPass" class="form-control" placeholder="Min 6 chars" required minlength="6"></div>';
-            regHTML += '<div><label class="form-label">Confirm Password *</label><input type="password" id="offConfirmPass" class="form-control" placeholder="Re-enter password" required minlength="6"></div>';
-            regHTML += '</div>';
-            regHTML += '<button type="submit" class="btn btn-primary" id="submitOfficerRegisterBtn" style="width:100%; justify-content:center; padding:0.75rem; font-size:0.95rem; background:var(--primary-dark);"><i class="fa-solid fa-paper-plane"></i> Submit RTO Registration Request</button>';
             regHTML += '</form>';
 
             regHTML += '<div class="login-footer"><p style="margin-top:1.25rem;">Already have an account? <a href="#citizen-login" id="toLoginBtn">Sign in here</a></p></div>';
@@ -1652,32 +1621,6 @@ function render() {
             document.getElementById('registerBrandBtn').onclick = function() { window.location.hash = 'home'; };
             document.getElementById('backHomeBtnReg').onclick = function() { window.location.hash = 'home'; };
             document.getElementById('toLoginBtn').onclick = function() { window.location.hash = 'citizen-login'; };
-
-            // Global tab switcher
-            window.switchRegTab = function(mode) {
-                var cForm = document.getElementById('registerForm');
-                var oForm = document.getElementById('registerOfficerForm');
-                var cBtn = document.getElementById('tabCitizenBtn');
-                var oBtn = document.getElementById('tabOfficerBtn');
-                var alertBox = document.getElementById('registerAlert');
-                if (alertBox) alertBox.style.display = 'none';
-
-                if (mode === 'officer') {
-                    cForm.style.display = 'none';
-                    oForm.style.display = 'block';
-                    cBtn.style.color = 'var(--text-muted)';
-                    cBtn.style.borderBottom = '3px solid transparent';
-                    oBtn.style.color = 'var(--primary)';
-                    oBtn.style.borderBottom = '3px solid var(--primary)';
-                } else {
-                    cForm.style.display = 'block';
-                    oForm.style.display = 'none';
-                    oBtn.style.color = 'var(--text-muted)';
-                    oBtn.style.borderBottom = '3px solid transparent';
-                    cBtn.style.color = 'var(--primary)';
-                    cBtn.style.borderBottom = '3px solid var(--primary)';
-                }
-            };
 
             // CITIZEN FORM SUBMIT
             document.getElementById('registerForm').onsubmit = async function(e) {
