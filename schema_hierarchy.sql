@@ -1,5 +1,5 @@
 -- ====================================================================
--- DRIVESETU FINAL SINGLE TABLE SCHEMA (rto_info + profiles)
+-- DRIVESETU FINAL SINGLE TABLE SCHEMA & CLEANUP (rto_info + profiles)
 -- Copy and paste this code into your Supabase SQL Editor and click "RUN"
 -- ====================================================================
 
@@ -71,11 +71,10 @@ CREATE POLICY "Authenticated RTO officers can view rto_info"
         OR (auth.jwt() -> 'user_metadata' ->> 'role') IN ('RTO_OFFICER', 'SUPER_ADMIN', 'ADMIN')
     );
 
--- 4. DELETE DEMO ROW "officer01"
+-- 4. DELETE ALL DEMO ROWS EXCEPT admin@drivesetu.com AND employ1@drivesetu.com
 DELETE FROM public.rto_info 
-WHERE rto_office_name = 'officer01' 
-   OR officer_id = 'officer01' 
-   OR officer_email LIKE '%officer01%';
+WHERE LOWER(officer_email) NOT IN ('admin@drivesetu.com', 'employ1@drivesetu.com')
+  AND LOWER(officer_full_name) NOT IN ('admin', 'employ 1');
 
 -- 5. AUTH PROFILES TABLE (Links auth.users to roles)
 CREATE TABLE IF NOT EXISTS public.profiles (
@@ -87,6 +86,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Clean profiles table except admin and employ 1
+DELETE FROM public.profiles 
+WHERE LOWER(email) NOT IN ('admin@drivesetu.com', 'employ1@drivesetu.com');
 
 -- Grant Permissions
 GRANT ALL ON ALL TABLES IN SCHEMA public TO postgres, service_role;
