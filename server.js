@@ -211,7 +211,7 @@ app.post('/api/submit-citizen-application', async (req, res) => {
 
         const { data: dbData, error: dbError } = await supabaseAdmin
             .from('citizen_documents')
-            .upsert([docPayload], { onConflict: 'user_id' });
+            .insert([docPayload]);
 
         if (dbError) {
             console.error("Error inserting into citizen_documents:", dbError.message);
