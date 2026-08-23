@@ -522,6 +522,7 @@ app.post('/api/register-rto-office', async (req, res) => {
 
         // 2. Check or Create Auth user in Supabase Auth
         const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
+        const assignedRole = req.body.role || 'TEST_CENTRE_OPERATOR';
         let existingUser = (usersList?.users || []).find(u => u.email.toLowerCase() === cleanEmail);
         let userId = null;
 
@@ -530,14 +531,14 @@ app.post('/api/register-rto-office', async (req, res) => {
             await supabaseAdmin.auth.admin.updateUserById(userId, {
                 password: password,
                 email_confirm: true,
-                user_metadata: { full_name: cleanOfficerName, role: 'RTO_OFFICER', rto_code: code }
+                user_metadata: { full_name: cleanOfficerName, role: assignedRole, rto_code: code }
             });
         } else {
             const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                 email: cleanEmail,
                 password: password,
                 email_confirm: true,
-                user_metadata: { full_name: cleanOfficerName, role: 'RTO_OFFICER', rto_code: code }
+                user_metadata: { full_name: cleanOfficerName, role: assignedRole, rto_code: code }
             });
 
             if (createError) {
@@ -551,8 +552,8 @@ app.post('/api/register-rto-office', async (req, res) => {
             await supabaseAdmin.from('profiles').upsert({
                 id: userId,
                 email: cleanEmail,
-                role: 'RTO_OFFICER',
-                account_type: 'RTO Officer',
+                role: assignedRole,
+                account_type: assignedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Operator' : 'RTO Officer',
                 full_name: cleanOfficerName,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' });
@@ -560,7 +561,7 @@ app.post('/api/register-rto-office', async (req, res) => {
 
         return res.json({
             success: true,
-            user: { id: userId, email: cleanEmail, role: 'RTO_OFFICER', rtoCode: code }
+            user: { id: userId, email: cleanEmail, role: assignedRole, rtoCode: code }
         });
     } catch (err) {
         return res.status(500).json({ error: err.message || 'RTO Office registration failed.' });

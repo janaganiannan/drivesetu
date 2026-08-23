@@ -8092,17 +8092,27 @@ function openRtoOfficeRegistrationModal() {
                     '</div>' +
                     '<div class="form-grid-2">' +
                         '<div class="form-field-group">' +
-                            '<label>Designation</label>' +
-                            '<input type="text" id="regDesignation" class="form-field-input" value="RTO Reviewing Officer">' +
+                            '<label>Officer Role / Terminal Access *</label>' +
+                            '<select id="regOfficerRole" class="form-field-select" required>' +
+                                '<option value="TEST_CENTRE_OPERATOR">Test Centre Operator (RTO Track Camera & Telemetry Terminal)</option>' +
+                                '<option value="REVIEWING_OFFICER" selected>RTO Reviewing Officer (Licence Review & Approvals)</option>' +
+                                '<option value="RTO_ADMIN">RTO Administrator</option>' +
+                            '</select>' +
                         '</div>' +
+                        '<div class="form-field-group">' +
+                            '<label>Designation</label>' +
+                            '<input type="text" id="regDesignation" class="form-field-input" value="Test Centre Operator">' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="form-grid-2">' +
                         '<div class="form-field-group">' +
                             '<label>Official Mobile</label>' +
                             '<input type="text" id="regOfficialMobile" class="form-field-input" placeholder="10-digit Mobile">' +
                         '</div>' +
-                    '</div>' +
-                    '<div class="form-field-group" style="margin-bottom:1rem;">' +
-                        '<label>Official Email (Login Username) *</label>' +
-                        '<input type="email" id="regOfficialEmail" class="form-field-input" placeholder="officer@drivesetu.com" required>' +
+                        '<div class="form-field-group">' +
+                            '<label>Official Email (Login Username) *</label>' +
+                            '<input type="email" id="regOfficialEmail" class="form-field-input" placeholder="operator@drivesetu.com" required>' +
+                        '</div>' +
                     '</div>' +
                     '<div class="form-grid-2">' +
                         '<div class="form-field-group">' +
@@ -8126,6 +8136,14 @@ function openRtoOfficeRegistrationModal() {
 
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 
+    document.getElementById('regOfficerRole').onchange = function() {
+        var r = this.value;
+        var desEl = document.getElementById('regDesignation');
+        if (desEl) {
+            desEl.value = (r === 'TEST_CENTRE_OPERATOR') ? 'RTO Test Track Operator' : 'RTO Reviewing Officer';
+        }
+    };
+
     document.getElementById('rtoOfficeRegForm').onsubmit = async function(e) {
         e.preventDefault();
         var pass = document.getElementById('regPassword').value;
@@ -8134,6 +8152,8 @@ function openRtoOfficeRegistrationModal() {
             alert('Passwords do not match. Please re-enter.');
             return;
         }
+
+        var selectedRole = document.getElementById('regOfficerRole').value || 'TEST_CENTRE_OPERATOR';
 
         var payload = {
             officeName: document.getElementById('regOfficeName').value.trim(),
@@ -8148,6 +8168,7 @@ function openRtoOfficeRegistrationModal() {
 
             officerName: document.getElementById('regOfficerName').value.trim(),
             officerId: document.getElementById('regOfficerId').value.trim(),
+            role: selectedRole,
             designation: document.getElementById('regDesignation').value.trim(),
             officialEmail: document.getElementById('regOfficialEmail').value.trim(),
             officialMobile: document.getElementById('regOfficialMobile').value.trim(),
@@ -8161,7 +8182,7 @@ function openRtoOfficeRegistrationModal() {
         try {
             var result = await DriveSetuSupabase.registerRTOOffice(payload);
             document.getElementById('rtoRegModal').remove();
-            alert('✓ RTO Office & Officer account registered successfully!\n\nYou can now log in with ' + payload.officialEmail);
+            alert('✓ RTO Office & Account registered successfully!\n\nRole: ' + (selectedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Camera Operator' : 'RTO Reviewing Officer') + '\nLogin Email: ' + payload.officialEmail);
             
             // Auto login officer
             var officerSession = {
