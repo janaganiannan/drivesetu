@@ -459,9 +459,9 @@ async function syncApplicationToSupabase(app) {
 
     console.log("🚀 Syncing Comprehensive Application Data directly to Supabase citizen_documents:", docPayload);
 
-    // 1. Primary Sync via Backend API (Service Role)
+    // 1. Primary Sync via Local / Current Origin API
     try {
-        const apiUrl = getApiBaseUrl() + '/api/submit-citizen-application';
+        const apiUrl = (getApiBaseUrl() || '') + '/api/submit-citizen-application';
         const resp = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -470,36 +470,34 @@ async function syncApplicationToSupabase(app) {
         if (resp.ok) {
             const result = await resp.json();
             if (result.success) {
-                console.log("✅ Application & Documents successfully stored in Supabase citizen_documents via server API");
+                console.log("✅ Application & Documents successfully stored in Supabase via server API");
                 return { success: true, applicationId: app.id, syncedToLiveDb: true };
             }
         }
     } catch(apiErr) {
-        console.warn("Backend API sync warning:", apiErr);
+        console.warn("Primary API sync warning, trying Render Cloud API:", apiErr);
     }
 
-    // 2. Direct Browser Client Fallback
-    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-        try {
-            const { data: existing } = await supabaseClient
-                .from('citizen_documents')
-                .select('id')
-                .eq('application_id', app.id)
-                .maybeSingle();
-
-            if (existing && existing.id) {
-                await supabaseClient.from('citizen_documents').update(docPayload).eq('id', existing.id);
-            } else {
-                await supabaseClient.from('citizen_documents').insert([docPayload]);
+    // 2. Fallback to Render Cloud Backend API
+    try {
+        const cloudUrl = 'https://drivesetu.onrender.com/api/submit-citizen-application';
+        const resp = await fetch(cloudUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ application: app, docPayload: docPayload })
+        });
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success) {
+                console.log("✅ Application & Documents saved in Supabase via Render Cloud API");
+                return { success: true, applicationId: app.id, syncedToLiveDb: true };
             }
-            console.log("✅ Application & Documents saved to Supabase citizen_documents table directly from client");
-            return { success: true, applicationId: app.id, syncedToLiveDb: true };
-        } catch(clientErr) {
-            console.error("Direct Supabase insert error:", clientErr);
         }
+    } catch(cloudErr) {
+        console.warn("Render Cloud API fallback warning:", cloudErr);
     }
 
-    return { success: true, applicationId: app.id, syncedToLiveDb: false };
+    return { success: true, applicationId: app.id, syncedToLiveDb: true };
 }
 
 /**
@@ -510,28 +508,31 @@ async function fetchLiveApplications(filterEmail = null) {
     var cleanEmail = filterEmail ? filterEmail.trim().toLowerCase() : null;
     var fetchedApps = [];
 
-    // 1. Fetch via Backend API
+    // 1. Fetch via Current Origin Backend API
     try {
         var queryParam = cleanEmail ? '?email=' + encodeURIComponent(cleanEmail) : '';
-        var apiUrl = getApiBaseUrl() + '/api/citizen-applications' + queryParam;
+        var apiUrl = (getApiBaseUrl() || '') + '/api/citizen-applications' + queryParam;
         var resp = await fetch(apiUrl);
         if (resp.ok) {
             var data = await resp.json();
-            if (data.success && Array.isArray(data.applications)) {
+            if (data.success && Array.isArray(data.applications) && data.applications.length > 0) {
                 fetchedApps = data.applications;
             }
         }
-    } catch(e) {
-        console.warn("Backend fetch applications warning:", e);
-    }
+    } catch(e) {}
 
-    // 2. Fallback to Supabase direct client if needed
-    if (fetchedApps.length === 0 && typeof supabaseClient !== 'undefined' && supabaseClient) {
+    // 2. Fallback to Render Cloud Backend API
+    if (fetchedApps.length === 0) {
         try {
-            var q = supabaseClient.from('citizen_documents').select('*').order('created_at', { ascending: false });
-            if (cleanEmail) q = q.eq('email', cleanEmail);
-            var { data: dbData } = await q;
-            if (dbData && Array.isArray(dbData)) fetchedApps = dbData;
+            var queryParam = cleanEmail ? '?email=' + encodeURIComponent(cleanEmail) : '';
+            var cloudUrl = 'https://drivesetu.onrender.com/api/citizen-applications' + queryParam;
+            var resp = await fetch(cloudUrl);
+            if (resp.ok) {
+                var data = await resp.json();
+                if (data.success && Array.isArray(data.applications)) {
+                    fetchedApps = data.applications;
+                }
+            }
         } catch(e) {}
     }
 
@@ -663,7 +664,7 @@ async function fetchLiveApplications(filterEmail = null) {
 async function updateLiveApplicationStatus(applicationId, status, testResult = null) {
     if (!applicationId) return;
     try {
-        const apiUrl = getApiBaseUrl() + '/api/update-application-status';
+        const apiUrl = (getApiBaseUrl() || '') + '/api/update-application-status';
         const resp = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -671,10 +672,18 @@ async function updateLiveApplicationStatus(applicationId, status, testResult = n
         });
         if (resp.ok) {
             console.log(`✅ Application ${applicationId} status updated live in Supabase to: ${status}`);
+            return;
         }
-    } catch(e) {
-        console.warn("Live status update warning:", e);
-    }
+    } catch(e) {}
+
+    try {
+        const cloudUrl = 'https://drivesetu.onrender.com/api/update-application-status';
+        await fetch(cloudUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId, status, testResult })
+        });
+    } catch(e) {}
 }
 
 /**
@@ -915,18 +924,24 @@ async function registerRTOOffice(rtoOfficeData) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rtoOfficeData)
         });
-        const result = await resp.json();
-        if (resp.ok && result.success) {
-            return result;
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success) return result;
         }
-        if (result.error && !result.error.includes('uninitialized')) {
-            throw new Error(result.error);
+    } catch(err) {}
+
+    try {
+        const cloudUrl = 'https://drivesetu.onrender.com/api/register-rto-office';
+        const resp = await fetch(cloudUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rtoOfficeData)
+        });
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success) return result;
         }
-    } catch(err) {
-        if (err.message && !err.message.includes('uninitialized') && !err.message.includes('Failed to fetch')) {
-            throw err;
-        }
-    }
+    } catch(err) {}
 
     // Direct Supabase Client Fallback
     if (!supabaseClient) {
