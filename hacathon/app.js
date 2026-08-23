@@ -1948,8 +1948,15 @@ function render() {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = '<i class="ph ' + loginIcon + '"></i> Sign In';
                     }
-                    if (confirm('Account not found in Supabase Auth.\n\nWould you like to register a new RTO Office & Officer account now?')) {
-                        openRtoOfficeRegistrationModal();
+                    var errMsg = (err && err.message) ? err.message : 'Invalid login credentials.';
+                    if (errMsg.toLowerCase().includes('invalid login credentials') || errMsg.toLowerCase().includes('invalid officer credentials')) {
+                        alert('⚠️ Authentication Failed: Incorrect password or email for ' + email + '.\n\nPlease check your credentials and try again.');
+                    } else if (errMsg.includes('Access Pending') || errMsg.includes('Registration Rejected')) {
+                        alert(errMsg);
+                    } else {
+                        if (confirm('Authentication Notice: ' + errMsg + '\n\nWould you like to register a new RTO Office & Officer account now?')) {
+                            openRtoOfficeRegistrationModal();
+                        }
                     }
                 }
             }
