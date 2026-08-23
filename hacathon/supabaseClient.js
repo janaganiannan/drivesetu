@@ -698,12 +698,47 @@ async function authenticateOfficer(email, password) {
         throw new Error("Supabase client not initialized.");
     }
 
-    const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+    let loginData = null;
+    let loginError = null;
+
+    const res = await supabaseClient.auth.signInWithPassword({
         email: cleanEmail,
         password: password
     });
+    loginData = res.data;
+    loginError = res.error;
 
-    if (loginError || !loginData.user) {
+    // If initial login fails, check if cleanEmail is an office_email or officer_email in rto_info
+    if (loginError || !loginData?.user) {
+        try {
+            const { data: rtoOfficeMatch } = await supabaseClient
+                .from('rto_info')
+                .select('*')
+                .or(`office_email.eq.${cleanEmail},officer_email.eq.${cleanEmail}`)
+                .maybeSingle();
+
+            if (rtoOfficeMatch) {
+                const altEmail = (rtoOfficeMatch.office_email && rtoOfficeMatch.office_email.toLowerCase() !== cleanEmail)
+                    ? rtoOfficeMatch.office_email.toLowerCase()
+                    : (rtoOfficeMatch.officer_email && rtoOfficeMatch.officer_email.toLowerCase() !== cleanEmail)
+                    ? rtoOfficeMatch.officer_email.toLowerCase()
+                    : null;
+
+                if (altEmail) {
+                    const retryRes = await supabaseClient.auth.signInWithPassword({
+                        email: altEmail,
+                        password: password
+                    });
+                    if (retryRes.data?.user) {
+                        loginData = retryRes.data;
+                        loginError = null;
+                    }
+                }
+            }
+        } catch(e) {}
+    }
+
+    if (loginError || !loginData?.user) {
         throw new Error("Invalid officer credentials or unauthorized account.");
     }
 
