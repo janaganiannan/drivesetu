@@ -5817,6 +5817,11 @@ function renderAdditionPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="grid-3">' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana" required></div>' +
+                        '<div class="form-group"><label>District <span class="text-danger">*</span></label><input type="text" id="applicantDistrict" placeholder="e.g. Medchal / Warangal" required></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="6-digit PIN" maxlength="6" required></div>' +
+                    '</div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Licence Credentials</h4>' +
                     '<div class="grid-2">' +
@@ -5878,6 +5883,11 @@ function renderIdpPage(session) {
                         '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
                     '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="grid-3">' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana" required></div>' +
+                        '<div class="form-group"><label>District <span class="text-danger">*</span></label><input type="text" id="applicantDistrict" placeholder="e.g. Medchal / Warangal" required></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="6-digit PIN" maxlength="6" required></div>' +
+                    '</div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Permit Credentials & Travel Details</h4>' +
                     '<div class="grid-2">' +
@@ -5941,6 +5951,11 @@ function renderRenewalPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="grid-3">' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana" required></div>' +
+                        '<div class="form-group"><label>District <span class="text-danger">*</span></label><input type="text" id="applicantDistrict" placeholder="e.g. Medchal / Warangal" required></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="6-digit PIN" maxlength="6" required></div>' +
+                    '</div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Existing Licence Credentials</h4>' +
                     '<div class="grid-2">' +
@@ -6008,6 +6023,11 @@ function renderDuplicatePage(session) {
                         '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
                     '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="grid-3">' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana" required></div>' +
+                        '<div class="form-group"><label>District <span class="text-danger">*</span></label><input type="text" id="applicantDistrict" placeholder="e.g. Medchal / Warangal" required></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="6-digit PIN" maxlength="6" required></div>' +
+                    '</div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Duplicate Request details</h4>' +
                     '<div class="grid-2">' +
@@ -6356,6 +6376,14 @@ async function submitServiceForm(licenceTypeKey) {
             var issueDate = document.getElementById('dlIssueDate') ? document.getElementById('dlIssueDate').value : '';
             var expiryDate = document.getElementById('dlExpiryDate') ? document.getElementById('dlExpiryDate').value : '';
             var vehicleCat = document.getElementById('vehicleCategory') ? document.getElementById('vehicleCategory').value : '';
+            var stateEl = document.getElementById('applicantState');
+            var districtEl = document.getElementById('applicantDistrict');
+            var pinEl = document.getElementById('applicantPin');
+
+            var state = stateEl ? stateEl.value.trim() : 'Telangana';
+            var district = districtEl ? districtEl.value.trim() : 'General';
+            var pin = pinEl ? pinEl.value.trim() : '500001';
+
             if (!dlNum) { alert('Driving Licence Number is required.'); return; }
             if (!issueDate) { alert('Licence Issue Date is required.'); return; }
             if (!expiryDate) { alert('Licence Expiry Date is required.'); return; }
@@ -6365,11 +6393,23 @@ async function submitServiceForm(licenceTypeKey) {
             serviceDetails.dlIssueDate = issueDate;
             serviceDetails.dlExpiryDate = expiryDate;
             serviceDetails.vehicleCategory = vehicleCat;
+            serviceDetails.vehicleClasses = [vehicleCat];
             serviceDetails.applicantCategory = category;
+            serviceDetails.state = state;
+            serviceDetails.district = district;
+            serviceDetails.pin = pin;
         } else if (licenceType === "Duplicate") {
             var dlNum = document.getElementById('dlNumber') ? document.getElementById('dlNumber').value.trim() : '';
             var reason = document.getElementById('duplicateReason') ? document.getElementById('duplicateReason').value : 'Lost';
             var details = document.getElementById('circumstances') ? document.getElementById('circumstances').value.trim() : '';
+            var stateEl = document.getElementById('applicantState');
+            var districtEl = document.getElementById('applicantDistrict');
+            var pinEl = document.getElementById('applicantPin');
+
+            var state = stateEl ? stateEl.value.trim() : 'Telangana';
+            var district = districtEl ? districtEl.value.trim() : 'General';
+            var pin = pinEl ? pinEl.value.trim() : '500001';
+
             if (!dlNum) { alert('Existing Driving Licence Number is required.'); return; }
             if (reason === 'Lost' && !details) {
                 alert('Please describe the circumstances of loss/destruction.');
@@ -6379,6 +6419,9 @@ async function submitServiceForm(licenceTypeKey) {
             serviceDetails.dlNumber = dlNum;
             serviceDetails.duplicateReason = reason;
             serviceDetails.circumstances = details;
+            serviceDetails.state = state;
+            serviceDetails.district = district;
+            serviceDetails.pin = pin;
         }
         
         // Show live loading spinner on button
