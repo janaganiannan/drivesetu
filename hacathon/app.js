@@ -5552,78 +5552,24 @@ function renderPermanentPage(session) {
         var dobStr = ad.dob || session.dob || '15/08/1998';
         var isDemo = (app.id === 'LL-DEMO-001' || app.isPrototypeDemo);
 
-        var cardHeaderHTML = isDemo
-            ? '<div style="background:#e8f7f1; border:2px solid #1aab74; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
-                '<div class="flex-between" style="margin-bottom:0.85rem;">' +
-                    '<div style="color:#148f60; font-weight:700; font-size:1.1rem; display:flex; align-items:center; gap:0.5rem;">' +
-                        '<i class="fa-solid fa-circle-check" style="font-size:1.4rem;"></i> Learner\'s Licence Verified' +
-                    '</div>' +
-                    '<span class="badge" style="background:#fff7e6; color:#d46b08; border:1px solid #ffe7ba; font-weight:700; font-size:0.78rem; padding:0.3rem 0.75rem;">' +
-                        '<i class="fa-solid fa-flask"></i> Prototype Demo Data' +
-                    '</span>' +
+        var cardHeaderHTML = '<div style="background:#e8f7f1; border:2px solid #1aab74; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
+                '<div style="color:#148f60; font-weight:700; font-size:1.1rem; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">' +
+                    '<i class="fa-solid fa-circle-check" style="font-size:1.4rem;"></i> Learner\'s Licence Verified' +
                 '</div>' +
-                '<div style="background:#fff; border:1px solid #c2ead8; border-radius:var(--radius-sm); padding:1rem; margin-bottom:0.75rem;">' +
-                    '<div class="grid-2" style="gap:0.75rem; font-size:0.88rem;">' +
-                        '<div><span style="color:var(--text-muted);">Application Number:</span> <strong style="font-size:0.95rem; color:var(--text-main);">' + app.id + '</strong></div>' +
+                '<div style="background:#fff; border:1px solid #c2ead8; border-radius:var(--radius-sm); padding:1rem; font-size:0.88rem;">' +
+                    '<div class="grid-2" style="gap:0.75rem;">' +
+                        '<div><span style="color:var(--text-muted);">Application Number:</span> <strong>' + app.id + '</strong></div>' +
                         '<div><span style="color:var(--text-muted);">Applicant Name:</span> <strong>' + (app.name || session.name) + '</strong></div>' +
-                        '<div><span style="color:var(--text-muted);">Status:</span> <strong style="color:#148f60;">Issued / Approved</strong></div>' +
-                        '<div><span style="color:var(--text-muted);">Issue Date:</span> <strong>' + elInfo.issueDateStr + '</strong> (Held for &gt;30 days)</div>' +
+                        '<div><span style="color:var(--text-muted);">Status:</span> <strong style="color:#148f60;">Verified / Active</strong></div>' +
+                        '<div><span style="color:var(--text-muted);">Issue Date:</span> <strong>' + (elInfo.issueDateStr || app.date || 'Today') + '</strong></div>' +
                         '<div><span style="color:var(--text-muted);">Vehicle Categories:</span> <strong>' + categoriesStr + '</strong></div>' +
-                        '<div><span style="color:var(--text-muted);">Eligibility:</span> <strong style="color:#148f60;"><i class="fa-solid fa-circle-check"></i> Eligible for Permanent Licence</strong></div>' +
+                        '<div><span style="color:var(--text-muted);">Eligibility:</span> <strong style="color:#148f60;"><i class="fa-solid fa-circle-check"></i> Eligible for Permanent Driving Licence</strong></div>' +
                     '</div>' +
                 '</div>' +
-                '<div style="text-align:center; font-size:0.78rem; color:#64748b; font-weight:600;">' +
-                    '⚠️ Prototype Demo Data — Not an official government record' +
-                '</div>' +
-              '</div>'
-            : (elInfo.isEligible
-                ? '<div style="background:#e8f7f1; border:2px solid #1aab74; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
-                    '<div style="color:#148f60; font-weight:700; font-size:1.1rem; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem;">' +
-                        '<i class="fa-solid fa-circle-check" style="font-size:1.4rem;"></i> Learner\'s Licence Verified' +
-                    '</div>' +
-                    '<div style="background:#fff; border:1px solid #c2ead8; border-radius:var(--radius-sm); padding:1rem; font-size:0.88rem;">' +
-                        '<div class="grid-2" style="gap:0.75rem;">' +
-                            '<div><span style="color:var(--text-muted);">Application Number:</span> <strong>' + app.id + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Applicant Name:</span> <strong>' + (app.name || session.name) + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Status:</span> <strong style="color:#148f60;">Issued / Approved</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Issue Date:</span> <strong>' + elInfo.issueDateStr + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Vehicle Categories:</span> <strong>' + categoriesStr + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Eligibility:</span> <strong style="color:#148f60;"><i class="fa-solid fa-circle-check"></i> 30-Day Period Complete</strong></div>' +
-                        '</div>' +
-                    '</div>' +
-                  '</div>'
-                : '<div style="background:#fff7e6; border:2px solid #d46b08; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
-                    '<div class="flex-between" style="margin-bottom:0.85rem;">' +
-                        '<div style="color:#d46b08; font-weight:700; font-size:1.1rem; display:flex; align-items:center; gap:0.5rem;">' +
-                            '<i class="fa-solid fa-lock" style="font-size:1.3rem;"></i> Permanent Licence Application Locked' +
-                        '</div>' +
-                        '<span class="badge" style="background:#fff0f0; color:#c53030; border:1px solid #feb2b2; font-weight:700; font-size:0.78rem; padding:0.3rem 0.75rem;">' +
-                            '<i class="fa-solid fa-clock"></i> 30-Day Rule In Effect' +
-                        '</span>' +
-                    '</div>' +
-                    '<div style="background:#fff; border:1px solid #ffe7ba; border-radius:var(--radius-sm); padding:1rem; margin-bottom:0.85rem; font-size:0.88rem;">' +
-                        '<div class="grid-2" style="gap:0.75rem;">' +
-                            '<div><span style="color:var(--text-muted);">Application Number:</span> <strong>' + app.id + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Applicant Name:</span> <strong>' + (app.name || session.name) + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">LL Issue Date:</span> <strong>' + elInfo.issueDateStr + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Unlocks On:</span> <strong>' + elInfo.eligibleDateStr + '</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Learning Period:</span> <strong style="color:#c53030;">' + elInfo.daysRemaining + ' Days Remaining</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Status:</span> <strong style="color:#d46b08;">Learning Period In Progress</strong></div>' +
-                        '</div>' +
-                    '</div>' +
-                    '<p style="font-size:0.83rem; color:#592400; margin:0; line-height:1.5;">' +
-                        'Under Motor Vehicle Regulations, applicants holding a Learner\'s Licence must complete a mandatory 30-day learning period before taking the practical driving test for a Permanent Licence. This option will unlock automatically once your 30-day learning period is complete on <strong>' + elInfo.eligibleDateStr + '</strong>.' +
-                    '</p>' +
-                  '</div>'
-            );
+              '</div>';
 
-        var actionBtnsHTML = elInfo.isEligible
-            ? '<div style="display:flex; gap:0.75rem;">' +
+        var actionBtnsHTML = '<div style="display:flex; gap:0.75rem;">' +
                 '<button type="button" class="btn btn-primary" style="flex:1; justify-content:center; padding:0.75rem; font-size:0.95rem;" onclick="startPermanentFormPrefilled()"><i class="fa-solid fa-arrow-right"></i> Proceed with Permanent Licence Application</button>' +
-                '<button type="button" class="btn btn-ghost" onclick="resetPermanentWorkflow()"><i class="fa-solid fa-rotate-left"></i> Search Other LL</button>' +
-              '</div>'
-            : '<div style="display:flex; gap:0.75rem;">' +
-                '<button type="button" class="btn btn-ghost" disabled style="flex:1; justify-content:center; padding:0.75rem; opacity:0.6; cursor:not-allowed;"><i class="fa-solid fa-lock"></i> Application Locked (' + elInfo.daysRemaining + ' Days Remaining)</button>' +
                 '<button type="button" class="btn btn-ghost" onclick="resetPermanentWorkflow()"><i class="fa-solid fa-rotate-left"></i> Search Other LL</button>' +
               '</div>';
 
