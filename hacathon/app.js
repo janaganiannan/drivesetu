@@ -8094,16 +8094,16 @@ function openRtoOfficeRegistrationModal() {
                     '</div>' +
                     '<div class="form-grid-2">' +
                         '<div class="form-field-group">' +
-                            '<label>Officer Role / Terminal Access *</label>' +
-                            '<select id="regOfficerRole" class="form-field-select" required>' +
-                                '<option value="TEST_CENTRE_OPERATOR">Test Centre Operator (RTO Track Camera & Telemetry Terminal)</option>' +
-                                '<option value="REVIEWING_OFFICER" selected>RTO Reviewing Officer (Licence Review & Approvals)</option>' +
-                                '<option value="RTO_ADMIN">RTO Administrator</option>' +
+                            '<label>Select Designation / Role *</label>' +
+                            '<select id="regOfficerRole" class="form-field-select" required style="font-weight:600;">' +
+                                '<option value="REVIEWING_OFFICER" selected>1. Reviewing Officer (Licence Evaluations & Approvals)</option>' +
+                                '<option value="TEST_CENTRE_OPERATOR">2. Test Center Operator (RTO Track Camera & Opening Terminal)</option>' +
+                                '<option value="ADMIN">3. Admin (System Administrative Authority)</option>' +
                             '</select>' +
                         '</div>' +
                         '<div class="form-field-group">' +
-                            '<label>Designation</label>' +
-                            '<input type="text" id="regDesignation" class="form-field-input" value="Test Centre Operator">' +
+                            '<label>Designation Title</label>' +
+                            '<input type="text" id="regDesignation" class="form-field-input" value="RTO Reviewing Officer">' +
                         '</div>' +
                     '</div>' +
                     '<div class="form-grid-2">' +
@@ -8113,7 +8113,7 @@ function openRtoOfficeRegistrationModal() {
                         '</div>' +
                         '<div class="form-field-group">' +
                             '<label>Official Email (Login Username) *</label>' +
-                            '<input type="email" id="regOfficialEmail" class="form-field-input" placeholder="operator@drivesetu.com" required>' +
+                            '<input type="email" id="regOfficialEmail" class="form-field-input" placeholder="officer@drivesetu.com" required>' +
                         '</div>' +
                     '</div>' +
                     '<div class="form-grid-2">' +
@@ -8142,7 +8142,9 @@ function openRtoOfficeRegistrationModal() {
         var r = this.value;
         var desEl = document.getElementById('regDesignation');
         if (desEl) {
-            desEl.value = (r === 'TEST_CENTRE_OPERATOR') ? 'RTO Test Track Operator' : 'RTO Reviewing Officer';
+            if (r === 'TEST_CENTRE_OPERATOR') desEl.value = 'Test Center Operator';
+            else if (r === 'ADMIN') desEl.value = 'System Administrator';
+            else desEl.value = 'RTO Reviewing Officer';
         }
     };
 
@@ -8155,7 +8157,8 @@ function openRtoOfficeRegistrationModal() {
             return;
         }
 
-        var selectedRole = document.getElementById('regOfficerRole').value || 'TEST_CENTRE_OPERATOR';
+        var selectedRole = document.getElementById('regOfficerRole').value || 'REVIEWING_OFFICER';
+        var designation = document.getElementById('regDesignation').value.trim();
 
         var payload = {
             officeName: document.getElementById('regOfficeName').value.trim(),
@@ -8171,7 +8174,7 @@ function openRtoOfficeRegistrationModal() {
             officerName: document.getElementById('regOfficerName').value.trim(),
             officerId: document.getElementById('regOfficerId').value.trim(),
             role: selectedRole,
-            designation: document.getElementById('regDesignation').value.trim(),
+            designation: designation,
             officialEmail: document.getElementById('regOfficialEmail').value.trim(),
             officialMobile: document.getElementById('regOfficialMobile').value.trim(),
             password: pass
@@ -8184,20 +8187,34 @@ function openRtoOfficeRegistrationModal() {
         try {
             var result = await DriveSetuSupabase.registerRTOOffice(payload);
             document.getElementById('rtoRegModal').remove();
-            alert('✓ RTO Office & Account registered successfully!\n\nRole: ' + (selectedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Camera Operator' : 'RTO Reviewing Officer') + '\nLogin Email: ' + payload.officialEmail);
             
-            // Auto login officer
+            var roleLabel = (selectedRole === 'TEST_CENTRE_OPERATOR') ? 'Test Center Operator'
+                : (selectedRole === 'ADMIN') ? 'System Administrator'
+                : 'RTO Reviewing Officer';
+                
+            alert('✓ RTO Account registered successfully!\n\nDesignation / Role: ' + roleLabel + '\nLogin Email: ' + payload.officialEmail);
+            
+            // Auto login officer with exact chosen role
             var officerSession = {
                 email: payload.officialEmail,
                 name: payload.officerName,
-                role: 'RTO_OFFICER',
+                role: selectedRole,
+                designation: designation,
                 rtoCode: payload.rtoCode,
                 rtoName: payload.officeName,
                 officerId: payload.officerId || ('OFF-' + payload.rtoCode),
                 initials: payload.officerName.slice(0, 3).toUpperCase()
             };
             sessionStorage.setItem('rtoSession', JSON.stringify(officerSession));
-            window.location.hash = 'rto';
+            
+            // Open the appropriate page based on designation/role
+            if (selectedRole === 'TEST_CENTRE_OPERATOR') {
+                window.location.hash = 'test-centre';
+            } else if (selectedRole === 'ADMIN') {
+                window.location.hash = 'admin';
+            } else {
+                window.location.hash = 'rto';
+            }
             render();
         } catch(err) {
             btn.disabled = false;
