@@ -4554,7 +4554,7 @@ function setupServiceDocsAndEvidence(licenceType) {
 function getDocumentConfigs(licenceType) {
     if (licenceType === "Learner's Licence") {
         return [
-            { id: 'aadhaar', name: 'Aadhaar Document', type: 'required' },
+            { id: 'proof_identity', name: 'Proof of Identity / Address', type: 'required' },
             { id: 'photo', name: 'Recent Photograph', type: 'required' },
             { id: 'form_1a', name: 'Form 1A Medical Certificate', type: 'conditional' },
             { id: 'parent_declaration', name: 'Parent/Guardian Declaration', type: 'conditional' }
@@ -5121,13 +5121,6 @@ function renderLearnerPage(session) {
                     '</div>' +
                     '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address"></div>' +
 
-                    '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Aadhaar Verification</h4>' +
-                    '<div class="form-group">' +
-                        '<label>Aadhaar Number <span class="text-danger">*</span></label>' +
-                        '<input type="text" id="aadhaarNumber" placeholder="Enter 12-digit Aadhaar number" maxlength="12">' +
-                        '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Enter your 12-digit Aadhaar number for authentication.</small>' +
-                    '</div>' +
-
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Vehicle Categories Requested</h4>' +
                     '<div class="form-group">' +
                         '<label>Select categories (Select all that apply) <span class="text-danger">*</span></label>' +
@@ -5679,7 +5672,6 @@ function renderPermanentPage(session) {
                         '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + initialEmail + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Aadhaar Card Number (UIDAI)</label><input type="text" id="aadhaarNumber" value="' + initialAadhaar + '" placeholder="12-digit Aadhaar number" maxlength="12"></div>' +
                         '<div class="form-group"><label>Applicant Category</label>' +
                             '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Permanent Licence\');" required>' +
                                 '<option value="Adult">General (Adult)</option>' +
@@ -5687,7 +5679,6 @@ function renderPermanentPage(session) {
                                 '<option value="Senior">Senior Citizen</option>' +
                             '</select>' +
                         '</div>' +
-                    '</div>' +
                         '<div class="form-group"><label>Educational Qualification</label>' +
                             '<select id="applicantQualification">' +
                                 '<option value="Graduate">Graduate / Higher</option>' +
