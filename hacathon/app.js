@@ -12,45 +12,31 @@ var citizenUsers = [];
 
 // ─── RTO & OFFICER SYSTEM DIRECTORY (ROLE-BASED AUTHENTICATION) ───
 var rtoAccounts = [
+    // Reviewing Officers (Active Evaluators)
+    { email: 'employ1@drivesetu.com', password: 'employ123', role: 'REVIEWING_OFFICER', name: 'Employ 1 (Officer 1)', officerId: 'OFF-TG05-01', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad', initials: 'OF1' },
+    { email: 'annanjanagani003@gmail.com', password: 'admin123', role: 'REVIEWING_OFFICER', name: 'Annan Janagani (Officer 2)', officerId: 'OFF-TG01-01', rtoCode: 'TG-01', rtoName: 'RTA Hyderabad Central', initials: 'OF2' },
+
     // Test Centre Operators (Associated with one specific RTO)
-    { email: 'operator.tg03@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-03 Test Centre Operator', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Hyderabad West', initials: 'OP3' },
-    { email: 'operator.tg05@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-05 Test Centre Operator', rtoCode: 'TG-05', rtoName: 'RTA Secunderabad / Hyderabad North', initials: 'OP5' },
-    { email: 'operator.tg08@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-08 Test Centre Operator', rtoCode: 'TG-08', rtoName: 'RTA Uppal / Rangareddy', initials: 'OP8' },
-    { email: 'operator.tg12@drivesetu.com', password: 'operator123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-12 Test Centre Operator', rtoCode: 'TG-12', rtoName: 'RTA Sangareddy', initials: 'OP12' },
+    { email: 'ramesh122@gmail.com', password: 'ramesh123', role: 'TEST_CENTRE_OPERATOR', name: 'Ramesh (TG-03 Test Centre Operator)', officerId: 'OP-TG03-01', rtoCode: 'TG-03', rtoName: 'RTA Medchal / Warangal', initials: 'OP3' },
+    { email: 'rto.tg03@drivesetu.com', password: 'ramesh123', role: 'TEST_CENTRE_OPERATOR', name: 'TG-03 Track Operator', officerId: 'OP-TG03-02', rtoCode: 'TG-03', rtoName: 'RTA Medchal', initials: 'OP3' },
 
     // System / Administrative Authority
-    { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'System Administrator', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
+    { email: 'admin@drivesetu.com', password: 'admin123', role: 'ADMIN', name: 'System Administrator', officerId: 'ADM-01', rtoCode: 'ALL', rtoName: 'Telangana Transport Department', initials: 'ADM' }
 ];
 
-// Independent Cross-RTO Officers Allocation Engine
+// Independent Cross-RTO Officers Allocation Engine (Randomly Allots to Officer 1 or Officer 2)
 function allocateIndependentOfficer(testRtoCode, excludeOfficerIds) {
     if (!excludeOfficerIds) excludeOfficerIds = [];
     var eligible = rtoAccounts.filter(function(acc) {
-        if (acc.role !== 'REVIEWING_OFFICER') return false;
-        if (acc.rtoCode === testRtoCode) return false;
-        if (excludeOfficerIds.indexOf(acc.officerId) !== -1) return false;
-        return true;
+        return acc.role === 'REVIEWING_OFFICER' && excludeOfficerIds.indexOf(acc.officerId) === -1 && excludeOfficerIds.indexOf(acc.email) === -1;
     });
 
     if (eligible.length === 0) {
-        var fallback = rtoAccounts.filter(function(acc) {
-            return acc.role === 'REVIEWING_OFFICER' && excludeOfficerIds.indexOf(acc.officerId) === -1;
-        });
-        return fallback[0] || rtoAccounts[7];
+        eligible = rtoAccounts.filter(function(acc) { return acc.role === 'REVIEWING_OFFICER'; });
     }
 
-    if (testRtoCode === 'TG-03' && excludeOfficerIds.indexOf('OFF-17') === -1) {
-        for (var k = 0; k < eligible.length; k++) {
-            if (eligible[k].officerId === 'OFF-17') return eligible[k];
-        }
-    }
-    if (testRtoCode === 'TG-03' && excludeOfficerIds.indexOf('OFF-17') !== -1 && excludeOfficerIds.indexOf('OFF-31') === -1) {
-        for (var k2 = 0; k2 < eligible.length; k2++) {
-            if (eligible[k2].officerId === 'OFF-31') return eligible[k2];
-        }
-    }
-
-    return eligible[0];
+    var chosen = eligible[Math.floor(Math.random() * eligible.length)] || rtoAccounts[0];
+    return chosen;
 }
 
 // ─── IMMUTABLE AUDIT LOG SYSTEM ───
@@ -129,29 +115,17 @@ function appendAuditEvent(appId, eventType, actor, role, details) {
     return entry;
 }
 
-// ─── DUAL EVALUATOR ALLOCATION ENGINE (Anti-Bribery Core) ───
+// ─── DUAL EVALUATOR ALLOCATION ENGINE (Anti-Bribery Core: Officer 1 & Officer 2) ───
 function allocateDualEvaluators(testRtoCode) {
-    var eligible = rtoAccounts.filter(function(acc) {
-        return acc.role === 'REVIEWING_OFFICER' && acc.rtoCode !== testRtoCode;
-    });
-    if (eligible.length < 2) {
-        eligible = rtoAccounts.filter(function(acc) { return acc.role === 'REVIEWING_OFFICER'; });
-    }
-    var eval1 = null, eval2 = null;
-    // Deterministic demo: TG-03 test → OFF-17 (TG-08) + OFF-31 (TG-12)
-    if (testRtoCode === 'TG-03') {
-        for (var i = 0; i < eligible.length; i++) {
-            if (eligible[i].officerId === 'OFF-17') eval1 = eligible[i];
-            if (eligible[i].officerId === 'OFF-31') eval2 = eligible[i];
-        }
-    }
-    if (!eval1 || !eval2) {
-        var shuffled = eligible.slice().sort(function() { return 0.5 - Math.random(); });
-        eval1 = shuffled[0];
-        for (var j = 1; j < shuffled.length; j++) {
-            if (shuffled[j].rtoCode !== eval1.rtoCode) { eval2 = shuffled[j]; break; }
-        }
-        if (!eval2) eval2 = shuffled[1] || shuffled[0];
+    var pool = [
+        { officerId: 'OFF-TG05-01', email: 'employ1@drivesetu.com', name: 'Employ 1 (Officer 1)', rtoCode: 'TG-05', role: 'REVIEWING_OFFICER' },
+        { officerId: 'OFF-TG01-01', email: 'annanjanagani003@gmail.com', name: 'Annan Janagani (Officer 2)', rtoCode: 'TG-01', role: 'REVIEWING_OFFICER' }
+    ];
+    var eval1 = pool[0];
+    var eval2 = pool[1];
+    if (Math.random() > 0.5) {
+        eval1 = pool[1];
+        eval2 = pool[0];
     }
     return { evaluator1: eval1, evaluator2: eval2 };
 }
@@ -680,6 +654,41 @@ function getStoredApplications() {
     if (saved) {
         try { apps = JSON.parse(saved); } catch(e) {}
     }
+
+    var officers = [
+        { officerId: 'OFF-TG05-01', email: 'employ1@drivesetu.com', name: 'Employ 1 (Officer 1)', rtoCode: 'TG-05' },
+        { officerId: 'OFF-TG01-01', email: 'annanjanagani003@gmail.com', name: 'Annan Janagani (Officer 2)', rtoCode: 'TG-01' }
+    ];
+
+    // Ensure all applications are cleanly allocated to Officer 1 or Officer 2
+    for (var i = 0; i < apps.length; i++) {
+        var a = apps[i];
+        if (!a.assignedOfficerEmail || (a.assignedOfficerEmail !== officers[0].email && a.assignedOfficerEmail !== officers[1].email)) {
+            var assigned = officers[i % 2];
+            a.assignedOfficerEmail = assigned.email;
+            a.assignedOfficerId = assigned.officerId;
+            a.assignedOfficerName = assigned.name;
+            a.assignedOfficer = assigned.name;
+            a.allocatedOfficerId = assigned.officerId;
+            a.allocatedOfficerEmail = assigned.email;
+            a.allocatedRtoCode = assigned.rtoCode;
+            if (!a.evaluator1) {
+                a.evaluator1 = {
+                    officerId: assigned.officerId,
+                    email: assigned.email,
+                    rtoCode: assigned.rtoCode,
+                    name: assigned.name,
+                    decision: null,
+                    reason: null
+                };
+            } else {
+                a.evaluator1.officerId = assigned.officerId;
+                a.evaluator1.email = assigned.email;
+                a.evaluator1.name = assigned.name;
+            }
+        }
+    }
+
     applications = apps;
     return apps;
 }
@@ -2524,54 +2533,58 @@ function render() {
                     renderAdminDashboard();
             }
         } else {
-            // Logged in as reviewing officer / evaluator
+            // Logged in as reviewing officer / evaluator (Officer 1 or Officer 2)
             var allApps = getStoredApplications();
+            var offEmail = _rs.email ? _rs.email.toLowerCase() : '';
+            var offId = _rs.officerId || '';
 
             // Filter applications assigned to this specific reviewer officer ONLY
             allApps = allApps.filter(function(a) {
-                return (a.assignedOfficerEmail === _rs.email) ||
-                       (a.assignedOfficerId === _rs.officerId) ||
-                       (a.evaluator1 && a.evaluator1.officerId === _rs.officerId) ||
-                       (a.evaluator2 && a.evaluator2.officerId === _rs.officerId) ||
-                       (a.adjudicator && a.adjudicator.officerId === _rs.officerId);
+                var matchAssigned = (a.assignedOfficerEmail && a.assignedOfficerEmail.toLowerCase() === offEmail) ||
+                                    (a.assignedOfficerId && a.assignedOfficerId === offId);
+                var matchEval1 = (a.evaluator1 && ((a.evaluator1.email && a.evaluator1.email.toLowerCase() === offEmail) || a.evaluator1.officerId === offId));
+                var matchEval2 = (a.evaluator2 && ((a.evaluator2.email && a.evaluator2.email.toLowerCase() === offEmail) || a.evaluator2.officerId === offId));
+                var matchAdj = (a.adjudicator && ((a.adjudicator.email && a.adjudicator.email.toLowerCase() === offEmail) || a.adjudicator.officerId === offId));
+                
+                return matchAssigned || matchEval1 || matchEval2 || matchAdj;
             });
 
             var pendingList = allApps.filter(function(a) {
-                var isPending = a.status === 'Pending RTO Review' || a.status === 'SECOND INDEPENDENT REVIEW REQUIRED' || a.status === 'Adjudication Review';
-                var isMyPending = false;
-                if (a.evaluator1 && a.evaluator1.officerId === _rs.officerId && !a.evaluator1.decision) isMyPending = true;
-                if (a.evaluator2 && a.evaluator2.officerId === _rs.officerId && !a.evaluator2.decision) isMyPending = true;
-                if (a.adjudicator && a.adjudicator.officerId === _rs.officerId && !a.adjudicator.decision) isMyPending = true;
-                return isPending && isMyPending;
+                var isPending = a.status === 'Submitted' || a.status === 'Pending' || a.status === 'Pending Review' || a.status === 'Pending RTO Review' || a.status === 'SECOND INDEPENDENT REVIEW REQUIRED' || a.status === 'Adjudication Review';
+                var isDone = false;
+                if (a.evaluator1 && ((a.evaluator1.email && a.evaluator1.email.toLowerCase() === offEmail) || a.evaluator1.officerId === offId) && a.evaluator1.decision) isDone = true;
+                if (a.evaluator2 && ((a.evaluator2.email && a.evaluator2.email.toLowerCase() === offEmail) || a.evaluator2.officerId === offId) && a.evaluator2.decision) isDone = true;
+                if (a.adjudicator && ((a.adjudicator.email && a.adjudicator.email.toLowerCase() === offEmail) || a.adjudicator.officerId === offId) && a.adjudicator.decision) isDone = true;
+                return isPending && !isDone;
             });
 
             var approvedList = allApps.filter(function(a) {
                 var isDone = false;
-                if (a.evaluator1 && a.evaluator1.officerId === _rs.officerId && a.evaluator1.decision) isDone = true;
-                if (a.evaluator2 && a.evaluator2.officerId === _rs.officerId && a.evaluator2.decision) isDone = true;
-                if (a.adjudicator && a.adjudicator.officerId === _rs.officerId && a.adjudicator.decision) isDone = true;
+                if (a.evaluator1 && ((a.evaluator1.email && a.evaluator1.email.toLowerCase() === offEmail) || a.evaluator1.officerId === offId) && a.evaluator1.decision) isDone = true;
+                if (a.evaluator2 && ((a.evaluator2.email && a.evaluator2.email.toLowerCase() === offEmail) || a.evaluator2.officerId === offId) && a.evaluator2.decision) isDone = true;
+                if (a.adjudicator && ((a.adjudicator.email && a.adjudicator.email.toLowerCase() === offEmail) || a.adjudicator.officerId === offId) && a.adjudicator.decision) isDone = true;
                 return isDone;
             });
 
             var listToDisplay = isRTOApproved ? approvedList : isRTOPending ? pendingList : allApps;
 
             var tableRows = listToDisplay.map(function(app) {
-                var myRole = '';
-                var myDecision = '';
-                if (app.evaluator1 && app.evaluator1.officerId === _rs.officerId) {
+                var myRole = 'Reviewing Officer';
+                var myDecision = 'Pending';
+                if (app.evaluator1 && ((app.evaluator1.email && app.evaluator1.email.toLowerCase() === offEmail) || app.evaluator1.officerId === offId)) {
                     myRole = 'Independent Evaluator';
                     myDecision = app.evaluator1.decision || 'Pending';
-                } else if (app.evaluator2 && app.evaluator2.officerId === _rs.officerId) {
+                } else if (app.evaluator2 && ((app.evaluator2.email && app.evaluator2.email.toLowerCase() === offEmail) || app.evaluator2.officerId === offId)) {
                     myRole = 'Independent Evaluator';
                     myDecision = app.evaluator2.decision || 'Pending';
-                } else if (app.adjudicator && app.adjudicator.officerId === _rs.officerId) {
+                } else if (app.adjudicator && ((app.adjudicator.email && app.adjudicator.email.toLowerCase() === offEmail) || app.adjudicator.officerId === offId)) {
                     myRole = 'Independent Adjudicator';
                     myDecision = app.adjudicator.decision || 'Pending';
                 }
 
                 var myStatusBadge = '';
-                if (myDecision === 'PASS') myStatusBadge = '<span class="badge badge-approved">PASS</span>';
-                else if (myDecision === 'FAIL') myStatusBadge = '<span class="badge badge-rejected" style="background:#fff0f0;color:#c53030;border:1px solid #feb2b2;">FAIL</span>';
+                if (myDecision === 'PASS' || myDecision === 'Approved') myStatusBadge = '<span class="badge badge-approved">✓ Approved</span>';
+                else if (myDecision === 'FAIL' || myDecision === 'Rejected') myStatusBadge = '<span class="badge badge-rejected" style="background:#fff0f0;color:#c53030;border:1px solid #feb2b2;">✗ Declined</span>';
                 else myStatusBadge = '<span class="badge badge-pending">⏳ Awaiting Your Review</span>';
 
                 var globalStatusBadge = '';
@@ -2582,11 +2595,12 @@ function render() {
 
                 return '<tr>' +
                     '<td><strong>' + app.id + '</strong></td>' +
+                    '<td>' + (app.applicantDetails ? app.applicantDetails.fullName : app.name || 'Applicant') + '</td>' +
                     '<td>' + app.type + '</td>' +
                     '<td>' + myRole + '</td>' +
                     '<td>' + myStatusBadge + '</td>' +
                     '<td>' + globalStatusBadge + '</td>' +
-                    '<td>' + app.date + '</td>' +
+                    '<td>' + (app.date || new Date().toLocaleDateString('en-IN')) + '</td>' +
                     '<td>' +
                         '<button class="btn btn-ghost" style="padding:0.35rem 0.8rem; font-size:0.78rem;" onclick="openReviewModal(\'' + app.id + '\')"><i class="fa-solid fa-eye"></i> ' + (myDecision === 'Pending' ? 'Evaluate Case' : 'View Case') + '</button>' +
                     '</td></tr>';
@@ -2595,7 +2609,7 @@ function render() {
             var sectionTitle = isRTOApproved ? 'My Completed Evaluations' : isRTOPending ? 'My Pending Independent Evaluations' : 'All My Cases';
 
             var modelBannerHTML = '<div style="background:#e6f4ff; border:1px solid #91caff; border-radius:var(--radius-md); padding:0.85rem 1.1rem; margin-bottom:1.25rem; font-size:0.84rem; color:#096dd9;">' +
-                '<strong><i class="fa-solid fa-diagram-project"></i> Independent Evaluator Terminal:</strong> Logged in as <strong>' + _rs.name + ' (' + _rs.rtoCode + ')</strong>. You review driving test evidence and telemetry records <strong>blindly</strong> to eliminate local bias. Both evaluators must independently submit a Pass/Fail decision.' +
+                '<strong><i class="fa-solid fa-diagram-project"></i> Independent Evaluator Terminal:</strong> Logged in as <strong>' + _rs.name + ' (' + _rs.rtoCode + ')</strong>. Licence and service applications are <strong>randomly allocated</strong> to you for blind independent review.' +
               '</div>';
 
             pageContent = '' +
@@ -2610,9 +2624,9 @@ function render() {
                 '<div class="card animate-in" style="animation-delay:0.05s;">' +
                     '<div class="card-title">' + sectionTitle + ' <span class="badge badge-active"><i class="fa-solid fa-circle" style="font-size:0.5rem"></i> Live queue</span></div>' +
                     '<div style="overflow-x:auto;">' +
-                        '<table class="data-table" id="appTable"><thead><tr>' +
-                            '<th>App ID</th><th>Service Type</th><th>Your Role</th><th>Your Decision</th><th>Overall Status</th><th>Date Assigned</th><th>Actions</th>' +
-                        '</tr></thead><tbody>' + (tableRows || '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No applications found in this queue.</td></tr>') + '</tbody></table>' +
+                    '<table class="data-table" id="appTable"><thead><tr>' +
+                            '<th>App ID</th><th>Applicant</th><th>Service Type</th><th>Your Role</th><th>Your Decision</th><th>Overall Status</th><th>Date Assigned</th><th>Actions</th>' +
+                        '</tr></thead><tbody>' + (tableRows || '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem;"><i class="fa-solid fa-inbox" style="font-size:1.5rem; display:block; margin-bottom:0.5rem;"></i>No applications currently assigned to your queue.</td></tr>') + '</tbody></table>' +
                     '</div>' +
                 '</div>';
         }
@@ -6588,11 +6602,10 @@ async function submitServiceForm(licenceTypeKey) {
             source: 'Digital Application (DriveSetu Portal)'
         };
 
-        // Random allotment among the 3 RTO Officers
+        // Random allotment among the 2 active Reviewing Officers (Officer 1 vs Officer 2)
         var officerPool = [
-            { officerId: 'OFF-ANNAN', email: 'annan@drivesetu.com', name: 'Officer Annan', rtoCode: 'TG-03' },
-            { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' },
-            { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' }
+            { officerId: 'OFF-TG05-01', email: 'employ1@drivesetu.com', name: 'Employ 1 (Officer 1)', rtoCode: 'TG-05' },
+            { officerId: 'OFF-TG01-01', email: 'annanjanagani003@gmail.com', name: 'Annan Janagani (Officer 2)', rtoCode: 'TG-01' }
         ];
         var assignedOfficerObj = officerPool[Math.floor(Math.random() * officerPool.length)];
 
@@ -6600,8 +6613,12 @@ async function submitServiceForm(licenceTypeKey) {
         newApp.assignedOfficerId = assignedOfficerObj.officerId;
         newApp.assignedOfficerName = assignedOfficerObj.name;
         newApp.assignedOfficer = assignedOfficerObj.name;
+        newApp.allocatedOfficerId = assignedOfficerObj.officerId;
+        newApp.allocatedOfficerEmail = assignedOfficerObj.email;
+        newApp.allocatedRtoCode = assignedOfficerObj.rtoCode;
         newApp.evaluator1 = {
             officerId: assignedOfficerObj.officerId,
+            email: assignedOfficerObj.email,
             rtoCode: assignedOfficerObj.rtoCode,
             name: assignedOfficerObj.name,
             decision: null,
