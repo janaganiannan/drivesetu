@@ -124,8 +124,8 @@ app.post('/api/submit-citizen-application', async (req, res) => {
         const docs = application.documents || [];
         const evidence = application.testEvidence || {};
 
-        const cleanEmail = (application.citizenId || details.email || '').trim().toLowerCase();
-        const cleanName = application.name || details.fullName || 'Citizen Applicant';
+        const cleanEmail = (req.body.docPayload?.email || req.body.citizen?.email || application.citizenId || application.email || details.email || service.email || '').trim().toLowerCase();
+        const cleanName = (req.body.docPayload?.full_name || application.name || details.fullName || details.name || service.name || 'Citizen Applicant').trim();
 
         // 1. Find or create Auth user_id
         let userId = null;
