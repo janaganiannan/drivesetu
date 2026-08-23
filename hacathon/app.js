@@ -301,6 +301,9 @@ function submitEvaluatorDecision(appId, decision, reason) {
                 if (reviews[r].appId === appId) { reviews[r].status = 'Approved'; reviews[r].reviewedBy = 'Dual Independent Consensus'; }
             }
             saveStoredReviews(reviews); saveStoredApplications(apps);
+            if (typeof updateLiveApplicationStatus === 'function') {
+                updateLiveApplicationStatus(appId, 'Approved', 'PASS');
+            }
             alert('✅ CONSENSUS REACHED: Both independent evaluators agreed PASS.\n\nLicence APPROVED for ' + appObj.name);
         } else if (e1.decision === 'FAIL' && e2.decision === 'FAIL') {
             appObj.evaluationStatus = 'CONSENSUS_FAIL'; appObj.status = 'Rejected';
@@ -312,6 +315,9 @@ function submitEvaluatorDecision(appId, decision, reason) {
                 if (reviews2[r2].appId === appId) { reviews2[r2].status = 'Rejected'; reviews2[r2].reviewedBy = 'Dual Independent Consensus'; }
             }
             saveStoredReviews(reviews2); saveStoredApplications(apps);
+            if (typeof updateLiveApplicationStatus === 'function') {
+                updateLiveApplicationStatus(appId, 'Rejected', 'FAIL');
+            }
             alert('❌ CONSENSUS REACHED: Both independent evaluators agreed FAIL.\n\nApplication REJECTED for ' + appObj.name);
         } else {
             appObj.evaluationStatus = 'DISAGREEMENT';
@@ -332,6 +338,9 @@ function submitEvaluatorDecision(appId, decision, reason) {
                 appendAuditEvent(appId, 'ADJUDICATION_ASSIGNED', 'System Engine', 'SYSTEM', 'Automated adjudication assigned through cross-RTO engine.');
             }
             saveStoredApplications(apps);
+            if (typeof updateLiveApplicationStatus === 'function') {
+                updateLiveApplicationStatus(appId, 'Adjudication Review', 'Pending Review');
+            }
             alert('⚠️ DISAGREEMENT DETECTED: Independent evaluation completed with conflicting decisions.\n\nCase referred to automated adjudication.');
         }
     } else {
@@ -379,6 +388,9 @@ function submitAdjudicatorDecision(appId, decision, reason) {
         }
     }
     saveStoredReviews(reviews); saveStoredApplications(apps);
+    if (typeof updateLiveApplicationStatus === 'function') {
+        updateLiveApplicationStatus(appId, decision === 'PASS' ? 'Approved' : 'Rejected', decision === 'PASS' ? 'PASS' : 'FAIL');
+    }
     alert((decision === 'PASS' ? '✅' : '❌') + ' ADJUDICATION COMPLETE\n\nFinal: ' + (decision === 'PASS' ? 'APPROVED' : 'REJECTED'));
     closeReviewModal();
 }
@@ -4710,6 +4722,16 @@ function removeTestEvidence(type, licenceType) {
 // ─── CITIZEN PAGES RENDERING CODE ───
 
 function renderServiceSelectionPage(session) {
+    // Background live fetch to sync applications from Supabase database
+    if (typeof fetchLiveApplications === 'function' && (!window._lastLiveAppFetch || Date.now() - window._lastLiveAppFetch > 10000)) {
+        window._lastLiveAppFetch = Date.now();
+        fetchLiveApplications(session ? session.email : null).then(function(liveApps) {
+            if (liveApps && liveApps.length > 0 && window.location.hash.indexOf('citizen') !== -1) {
+                // Background update without disrupting active forms
+            }
+        }).catch(function(){});
+    }
+
     var allApps = getStoredApplications();
     var citizenApps = allApps.filter(function(app) {
         return app.citizenId === session.email || app.citizenId === session.appId || app.name === session.name;
@@ -4752,8 +4774,10 @@ function renderServiceSelectionPage(session) {
             ? 'Scheduled: ' + (app.serviceDetails.allocatedTestDate || 'Test Centre') + ' (' + (app.serviceDetails.allocatedTestStartTime || 'Slot') + ')'
             : (app.status === 'Approved' ? 'Licence Issued' : 'RTO Document Verification');
 
+        var liveDbTag = app.isLiveDatabaseRecord ? ' <span style="font-size:0.65rem; color:#0d9488; font-weight:700;">[LIVE DB]</span>' : '';
+
         appRows += '<tr>' +
-            '<td><strong>' + app.id + '</strong></td>' +
+            '<td><strong>' + app.id + '</strong>' + liveDbTag + '</td>' +
             '<td>' + app.type + '</td>' +
             '<td>' + app.date + '</td>' +
             '<td>' + statusBadge + '</td>' +
@@ -4768,7 +4792,10 @@ function renderServiceSelectionPage(session) {
 
     return '<div class="animate-in">' +
         '<div class="ai-header-banner" style="margin-bottom:1.5rem;">' +
-            '<div class="ai-banner-badge"><i class="fa-solid fa-user"></i> Citizen Portal</div>' +
+            '<div class="flex-between">' +
+                '<div class="ai-banner-badge"><i class="fa-solid fa-user"></i> Citizen Portal</div>' +
+                '<div style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.75rem; color:#0d9488; background:#e8f7f1; border:1px solid #c2ead8; padding:0.25rem 0.6rem; border-radius:12px;"><i class="fa-solid fa-circle" style="font-size:0.5rem; color:#10b981;"></i> Live Cloud Database Connected</div>' +
+            '</div>' +
             '<h2>Welcome, ' + session.name + '</h2>' +
             '<p>Manage your driving licence services, applications, and pending actions from one place.</p>' +
         '</div>' +
@@ -4883,20 +4910,23 @@ function renderLearnerPage(session) {
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name (as per Aadhaar)</label><input type="text" id="applicantName" value="' + (session.name || 'Citizen Applicant') + '"></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + (session.email || 'citizen1@gmail.com') + '"></div>' +
+                        '<div class="form-group"><label>Full Name (as per Aadhaar) <span class="text-danger">*</span></label><input type="text" id="applicantName" placeholder="Enter your full name"></div>' +
+                        '<div class="form-group"><label>Email Address <span class="text-danger">*</span></label><input type="email" id="applicantEmail" placeholder="Enter email address" value="' + (session && session.email && !session.email.startsWith('citizen') ? session.email : '') + '"></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" value="8125531017" placeholder="10-digit number" maxlength="10"></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" value="2005-08-24"></div>' +
+                        '<div class="form-group"><label>Mobile Number <span class="text-danger">*</span></label><input type="tel" id="applicantMobile" placeholder="10-digit mobile number" maxlength="10"></div>' +
+                        '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob"></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Gender</label>' +
+                        '<div class="form-group"><label>Gender <span class="text-danger">*</span></label>' +
                             '<select id="applicantGender">' +
-                                '<option value="Male" selected>Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
+                                '<option value="">-- Select Gender --</option>' +
+                                '<option value="Male">Male</option>' +
+                                '<option value="Female">Female</option>' +
+                                '<option value="Other">Other</option>' +
                             '</select>' +
                         '</div>' +
-                        '<div class="form-group"><label>Applicant Category</label>' +
+                        '<div class="form-group"><label>Applicant Category <span class="text-danger">*</span></label>' +
                             '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Learner\\\'s Licence\'); toggleMinorField();">' +
                                 '<option value="Adult" selected>General (Adult)</option>' +
                                 '<option value="Minor">Minor (16-18 years)</option>' +
@@ -4906,10 +4936,11 @@ function renderLearnerPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" value="Telangana" placeholder="e.g. Telangana"></div>' +
+                        '<div class="form-group"><label>State <span class="text-danger">*</span></label><input type="text" id="applicantState" placeholder="e.g. Telangana"></div>' +
                         '<div class="form-group"><label>District <span class="text-danger">*</span></label>' +
                             '<select id="applicantDistrict">' +
-                                '<option value="Warangal" selected>Warangal</option>' +
+                                '<option value="">-- Select District --</option>' +
+                                '<option value="Warangal">Warangal</option>' +
                                 '<option value="Hyderabad">Hyderabad</option>' +
                                 '<option value="Rangareddy">Rangareddy</option>' +
                                 '<option value="Medchal">Medchal</option>' +
@@ -4923,32 +4954,32 @@ function renderLearnerPage(session) {
                         '</div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" value="506005" placeholder="e.g. 500001" maxlength="6"></div>' +
+                        '<div class="form-group"><label>PIN Code <span class="text-danger">*</span></label><input type="text" id="applicantPin" placeholder="e.g. 500001" maxlength="6"></div>' +
                         '<div class="form-group" id="minorParentField" style="display:none;">' +
-                            '<label>Parent / Guardian Name</label>' +
+                            '<label>Parent / Guardian Name <span class="text-danger">*</span></label>' +
                             '<input type="text" id="parentName" placeholder="Full name of parent/guardian">' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" value="RTA Warangal Urban, Telangana - 506005" placeholder="Full residential address"></div>' +
+                    '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address"></div>' +
 
-                    '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Aadhaar Verification (Simulated)</h4>' +
+                    '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Aadhaar Verification</h4>' +
                     '<div class="form-group">' +
                         '<label>Aadhaar Number <span class="text-danger">*</span></label>' +
-                        '<input type="text" id="aadhaarNumber" value="123456789012" placeholder="Enter 12-digit Aadhaar number" maxlength="12">' +
-                        '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Note: This is a prototype system. Aadhaar verification is simulated for demonstration purposes.</small>' +
+                        '<input type="text" id="aadhaarNumber" placeholder="Enter 12-digit Aadhaar number" maxlength="12">' +
+                        '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Enter your 12-digit Aadhaar number for authentication.</small>' +
                     '</div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Vehicle Categories Requested</h4>' +
                     '<div class="form-group">' +
                         '<label>Select categories (Select all that apply) <span class="text-danger">*</span></label>' +
                         '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; background: var(--bg); padding: 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border);">' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="MCWOG"> Motorcycle Without Gear (MCWOG)</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="MCWG" checked> Motorcycle With Gear (MCWG)</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="LMV" checked> Light Motor Vehicle (LMV)</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="Transport"> Transport Vehicle</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="E-Rickshaw"> E-Rickshaw</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="E-Cart"> E-Cart</label>' +
-                            '<label><input type="checkbox" name="vehicleCategory" value="Other"> Other</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="MCWOG"> Motorcycle Without Gear (MCWOG)</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="MCWG"> Motorcycle With Gear (MCWG)</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="LMV"> Light Motor Vehicle (LMV)</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="Transport"> Transport Vehicle</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="E-Rickshaw"> E-Rickshaw</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="E-Cart"> E-Cart</label>' +
+                            '<label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer;"><input type="checkbox" name="vehicleCategory" value="Other"> Other</label>' +
                         '</div>' +
                     '</div>' +
 
@@ -4958,16 +4989,17 @@ function renderLearnerPage(session) {
                         '<div class="grid-2" style="margin-top:0.4rem;">' +
                             '<div>' +
                                 '<label style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Available Date</label>' +
-                                '<input type="date" id="preferredTestDate" value="' + defaultDate + '">' +
+                                '<input type="date" id="preferredTestDate" min="' + (new Date().toISOString().split('T')[0]) + '">' +
                             '</div>' +
                             '<div>' +
                                 '<label style="font-size:0.78rem; color:var(--text-muted); display:block; margin-bottom:0.25rem;">Available Time Window (1-Hour)</label>' +
                                 '<select id="preferredTimeWindow">' +
+                                    '<option value="">-- Select 1-Hour Time Slot --</option>' +
                                     '<option value="09:00 AM - 10:00 AM">09:00 AM – 10:00 AM</option>' +
                                     '<option value="10:00 AM - 11:00 AM">10:00 AM – 11:00 AM</option>' +
                                     '<option value="11:00 AM - 12:00 PM">11:00 AM – 12:00 PM</option>' +
                                     '<option value="12:00 PM - 01:00 PM">12:00 PM – 01:00 PM</option>' +
-                                    '<option value="02:00 PM - 03:00 PM" selected>02:00 PM – 03:00 PM</option>' +
+                                    '<option value="02:00 PM - 03:00 PM">02:00 PM – 03:00 PM</option>' +
                                     '<option value="03:00 PM - 04:00 PM">03:00 PM – 04:00 PM</option>' +
                                     '<option value="04:00 PM - 05:00 PM">04:00 PM – 05:00 PM</option>' +
                                 '</select>' +
@@ -4979,8 +5011,8 @@ function renderLearnerPage(session) {
                         '<label>Enter your preferred RTO office code <span class="text-danger">*</span></label>' +
                         '<div style="display:flex; gap:0.5rem; align-items:flex-start; margin-top:0.4rem;">' +
                             '<div style="flex-grow:1;">' +
-                                '<input type="text" id="preferredRtoCode" value="TG-03" placeholder="e.g. TG-09 or TG-03" oninput="lookupRtoOffice()">' +
-                                '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Enter the RTO Office Code / Prototype Lookup Code where you want to take your test.</small>' +
+                                '<input type="text" id="preferredRtoCode" placeholder="e.g. TG-09 or TG-03" oninput="lookupRtoOffice()">' +
+                                '<small class="text-muted-small" style="display:block; margin-top:0.25rem;">Enter the RTO Office Code where you want to take your test.</small>' +
                             '</div>' +
                             '<button type="button" class="btn btn-ghost" onclick="showRtoDirectoryModal()" style="padding:0.6rem 0.8rem; font-size:0.8rem; border-color:var(--border);"><i class="fa-solid fa-list"></i> View Directory</button>' +
                         '</div>' +
@@ -5746,20 +5778,20 @@ function renderAdditionPage(session) {
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name</label><input type="text" id="applicantName" value="' + session.name + '" required></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + session.email + '" required></div>' +
+                        '<div class="form-group"><label>Full Name <span class="text-danger">*</span></label><input type="text" id="applicantName" placeholder="Enter your full name" required></div>' +
+                        '<div class="form-group"><label>Email Address <span class="text-danger">*</span></label><input type="email" id="applicantEmail" placeholder="Enter email address" value="' + (session && session.email && !session.email.startsWith('citizen') ? session.email : '') + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" required></div>' +
+                        '<div class="form-group"><label>Mobile Number <span class="text-danger">*</span></label><input type="tel" id="applicantMobile" placeholder="10-digit mobile number" maxlength="10" required></div>' +
+                        '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Gender</label>' +
+                        '<div class="form-group"><label>Gender <span class="text-danger">*</span></label>' +
                             '<select id="applicantGender" required>' +
-                                '<option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
+                                '<option value="">-- Select Gender --</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
                             '</select>' +
                         '</div>' +
-                        '<div class="form-group"><label>Applicant Category</label>' +
+                        '<div class="form-group"><label>Applicant Category <span class="text-danger">*</span></label>' +
                             '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Addition of Class\');" required>' +
                                 '<option value="Adult">General (Adult)</option>' +
                                 '<option value="Transport">Transport (Commercial)</option>' +
@@ -5767,24 +5799,24 @@ function renderAdditionPage(session) {
                             '</select>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Licence Credentials</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Existing DL Number</label><input type="text" id="existingDlNumber" placeholder="e.g. TS00920210045612" required></div>' +
-                        '<div class="form-group"><label>Learner Licence Number for New Category</label><input type="text" id="llNewNumber" placeholder="e.g. TS009/LL/2026/A" required></div>' +
+                        '<div class="form-group"><label>Existing DL Number <span class="text-danger">*</span></label><input type="text" id="existingDlNumber" placeholder="e.g. TS00920210045612" required></div>' +
+                        '<div class="form-group"><label>Learner Licence Number for New Category <span class="text-danger">*</span></label><input type="text" id="llNewNumber" placeholder="e.g. TS009/LL/2026/A" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Current Vehicle Class</label>' +
+                        '<div class="form-group"><label>Current Vehicle Class <span class="text-danger">*</span></label>' +
                             '<select id="currentVehicleClass" required>' +
-                                '<option value="">Select...</option>' +
+                                '<option value="">-- Select Current Class --</option>' +
                                 '<option value="MCWG">Motor Cycle With Gear (MCWG)</option>' +
                                 '<option value="LMV">Light Motor Vehicle (LMV)</option>' +
                             '</select>' +
                         '</div>' +
-                        '<div class="form-group"><label>New Vehicle Class Requested</label>' +
+                        '<div class="form-group"><label>New Vehicle Class Requested <span class="text-danger">*</span></label>' +
                             '<select id="newVehicleClass" required>' +
-                                '<option value="">Select...</option>' +
+                                '<option value="">-- Select New Class --</option>' +
                                 '<option value="LMV">Light Motor Vehicle (LMV)</option>' +
                                 '<option value="HMV">Heavy Motor Vehicle (HMV)</option>' +
                             '</select>' +
@@ -5821,23 +5853,23 @@ function renderIdpPage(session) {
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name</label><input type="text" id="applicantName" value="' + session.name + '" required></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + session.email + '" required></div>' +
+                        '<div class="form-group"><label>Full Name <span class="text-danger">*</span></label><input type="text" id="applicantName" placeholder="Enter your full name" required></div>' +
+                        '<div class="form-group"><label>Email Address <span class="text-danger">*</span></label><input type="email" id="applicantEmail" placeholder="Enter email address" value="' + (session && session.email && !session.email.startsWith('citizen') ? session.email : '') + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" required></div>' +
+                        '<div class="form-group"><label>Mobile Number <span class="text-danger">*</span></label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
+                        '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Permit Credentials & Travel Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Indian DL Number</label><input type="text" id="indianDlNumber" placeholder="e.g. TS00920220045678" required></div>' +
-                        '<div class="form-group"><label>Countries to be Visited</label><input type="text" id="countriesToVisit" placeholder="e.g. USA, Germany, Japan" required></div>' +
+                        '<div class="form-group"><label>Indian DL Number <span class="text-danger">*</span></label><input type="text" id="indianDlNumber" placeholder="e.g. TS00920220045678" required></div>' +
+                        '<div class="form-group"><label>Countries to be Visited <span class="text-danger">*</span></label><input type="text" id="countriesToVisit" placeholder="e.g. USA, Germany, Japan" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Travel Information / Ticket details</label><input type="text" id="travelInfo" placeholder="e.g. Flight AI-101 / Visa details" required></div>' +
-                        '<div class="form-group"><label>Vehicle Categories Requested</label>' +
+                        '<div class="form-group"><label>Travel Information / Ticket details <span class="text-danger">*</span></label><input type="text" id="travelInfo" placeholder="e.g. Flight AI-101 / Visa details" required></div>' +
+                        '<div class="form-group"><label>Vehicle Categories Requested <span class="text-danger">*</span></label>' +
                             '<select id="vehicleCategoriesRequested" required>' +
                                 '<option value="Motorcycle">Motorcycle</option>' +
                                 '<option value="LMV">Light Motor Vehicle (Car/LMV)</option>' +
@@ -5870,20 +5902,20 @@ function renderRenewalPage(session) {
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name</label><input type="text" id="applicantName" value="' + session.name + '" required></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + session.email + '" required></div>' +
+                        '<div class="form-group"><label>Full Name <span class="text-danger">*</span></label><input type="text" id="applicantName" placeholder="Enter your full name" required></div>' +
+                        '<div class="form-group"><label>Email Address <span class="text-danger">*</span></label><input type="email" id="applicantEmail" placeholder="Enter email address" value="' + (session && session.email && !session.email.startsWith('citizen') ? session.email : '') + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" required></div>' +
+                        '<div class="form-group"><label>Mobile Number <span class="text-danger">*</span></label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
+                        '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Gender</label>' +
+                        '<div class="form-group"><label>Gender <span class="text-danger">*</span></label>' +
                             '<select id="applicantGender" required>' +
-                                '<option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
+                                '<option value="">-- Select Gender --</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option>' +
                             '</select>' +
                         '</div>' +
-                        '<div class="form-group"><label>Applicant Category</label>' +
+                        '<div class="form-group"><label>Applicant Category <span class="text-danger">*</span></label>' +
                             '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Renewal\');" required>' +
                                 '<option value="Adult">General (Adult)</option>' +
                                 '<option value="Transport">Transport (Commercial)</option>' +
@@ -5891,16 +5923,16 @@ function renderRenewalPage(session) {
                             '</select>' +
                         '</div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Existing Licence Credentials</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Driving Licence Number</label><input type="text" id="dlNumber" placeholder="e.g. TS00920200041234" required></div>' +
-                        '<div class="form-group"><label>Licence Issue Date</label><input type="date" id="dlIssueDate" required></div>' +
+                        '<div class="form-group"><label>Driving Licence Number <span class="text-danger">*</span></label><input type="text" id="dlNumber" placeholder="e.g. TS00920200041234" required></div>' +
+                        '<div class="form-group"><label>Licence Issue Date <span class="text-danger">*</span></label><input type="date" id="dlIssueDate" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Licence Expiry Date</label><input type="date" id="dlExpiryDate" onchange="checkExpiryWarning();" required></div>' +
-                        '<div class="form-group"><label>Vehicle Category</label>' +
+                        '<div class="form-group"><label>Licence Expiry Date <span class="text-danger">*</span></label><input type="date" id="dlExpiryDate" onchange="checkExpiryWarning();" required></div>' +
+                        '<div class="form-group"><label>Vehicle Category <span class="text-danger">*</span></label>' +
                             '<select id="vehicleCategory" required>' +
                                 '<option value="MCWG">MCWG (Motor Cycle)</option>' +
                                 '<option value="LMV">LMV (Car)</option>' +
@@ -5951,19 +5983,19 @@ function renderDuplicatePage(session) {
                     
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Applicant Details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Full Name</label><input type="text" id="applicantName" value="' + session.name + '" required></div>' +
-                        '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + session.email + '" required></div>' +
+                        '<div class="form-group"><label>Full Name <span class="text-danger">*</span></label><input type="text" id="applicantName" placeholder="Enter your full name" required></div>' +
+                        '<div class="form-group"><label>Email Address <span class="text-danger">*</span></label><input type="email" id="applicantEmail" placeholder="Enter email address" value="' + (session && session.email && !session.email.startsWith('citizen') ? session.email : '') + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Mobile Number</label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
-                        '<div class="form-group"><label>Date of Birth</label><input type="date" id="applicantDob" required></div>' +
+                        '<div class="form-group"><label>Mobile Number <span class="text-danger">*</span></label><input type="tel" id="applicantMobile" placeholder="10-digit number" maxlength="10" required></div>' +
+                        '<div class="form-group"><label>Date of Birth <span class="text-danger">*</span></label><input type="date" id="applicantDob" required></div>' +
                     '</div>' +
-                    '<div class="form-group"><label>Residential Address</label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
+                    '<div class="form-group"><label>Residential Address <span class="text-danger">*</span></label><input type="text" id="applicantAddress" placeholder="Full residential address" required></div>' +
 
                     '<h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--border); padding-bottom: 0.25rem;">Duplicate Request details</h4>' +
                     '<div class="grid-2">' +
-                        '<div class="form-group"><label>Existing DL Number</label><input type="text" id="dlNumber" placeholder="e.g. TS00920200041234" required></div>' +
-                        '<div class="form-group"><label>Reason for Duplicate</label>' +
+                        '<div class="form-group"><label>Existing DL Number <span class="text-danger">*</span></label><input type="text" id="dlNumber" placeholder="e.g. TS00920200041234" required></div>' +
+                        '<div class="form-group"><label>Reason for Duplicate <span class="text-danger">*</span></label>' +
                             '<select id="duplicateReason" onchange="renderDocumentChecklistTable(\'Duplicate\'); toggleDuplicateFields();" required>' +
                                 '<option value="Lost">Lost / Destroyed</option>' +
                                 '<option value="Defaced">Defaced / Torn</option>' +
@@ -6003,495 +6035,544 @@ function toggleDuplicateFields() {
 
 
 
-function submitServiceForm(licenceTypeKey) {
+async function submitServiceForm(licenceTypeKey) {
+    var submitBtn = document.getElementById('submitLearnerBtn') 
+        || document.querySelector('button[onclick*="submitServiceForm"]') 
+        || document.querySelector('form button[type="submit"]');
+    var origBtnHTML = submitBtn ? submitBtn.innerHTML : '';
+
     try {
         var typeMap = { 'LL': "Learner's Licence", 'PL': 'Permanent Licence', 'AOC': 'Addition of Class', 'IDP': 'International Driving Permit', 'REN': 'Renewal', 'DUP': 'Duplicate' };
-    var licenceType = typeMap[licenceTypeKey] || licenceTypeKey || "Learner's Licence";
-    
-    var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null)
-        || safeParseJSON(localStorage.getItem('citizenSession'), null)
-        || safeParseJSON(localStorage.getItem('drivesetu_citizen_session'), null)
-        || (window._citizenSession || null);
+        var licenceType = typeMap[licenceTypeKey] || licenceTypeKey || "Learner's Licence";
+        
+        var session = safeParseJSON(sessionStorage.getItem('citizenSession'), null)
+            || safeParseJSON(localStorage.getItem('citizenSession'), null)
+            || safeParseJSON(localStorage.getItem('drivesetu_citizen_session'), null)
+            || (window._citizenSession || null);
 
-    if (!session) {
-        session = { email: 'citizen1@gmail.com', name: 'Citizen Applicant', appId: 'APP-229627' };
-    }
-    
-    var nameEl = document.getElementById('applicantName');
-    var name = (nameEl && nameEl.value ? nameEl.value.trim() : '') || (session ? session.name : 'Citizen Applicant');
-    
-    var dobEl = document.getElementById('applicantDob');
-    var dob = (dobEl && dobEl.value ? dobEl.value.trim() : '') || '2005-08-24';
-    
-    var genderEl = document.getElementById('applicantGender');
-    var gender = (genderEl && genderEl.value ? genderEl.value : '') || 'Male';
-    
-    var addressEl = document.getElementById('applicantAddress');
-    var address = (addressEl && addressEl.value ? addressEl.value.trim() : '') || 'RTA Warangal Urban, Telangana - 506005';
-    
-    var mobileEl = document.getElementById('applicantMobile');
-    var mobile = (mobileEl && mobileEl.value ? mobileEl.value.trim().replace(/[^0-9]/g, '') : '') || '8125531017';
-    if (mobile.length > 10) mobile = mobile.slice(-10);
-    if (mobile.length < 10) mobile = '8125531017';
-    
-    var emailEl = document.getElementById('applicantEmail');
-    var email = (emailEl && emailEl.value ? emailEl.value.trim() : '') || (session ? session.email : 'citizen1@gmail.com');
-    
-    var categoryEl = document.getElementById('applicantCategory');
-    var category = (categoryEl && categoryEl.value ? categoryEl.value : '') || 'Adult';
-    
-    var serviceDetails = {};
-    var requireEvidence = false;
-    
-    if (licenceType === "Learner's Licence") {
-        var stateEl = document.getElementById('applicantState');
-        var districtEl = document.getElementById('applicantDistrict');
-        var pinEl = document.getElementById('applicantPin');
-        var aadhaarEl = document.getElementById('aadhaarNumber');
-        
-        var state = (stateEl && stateEl.value ? stateEl.value.trim() : '') || 'Telangana';
-        var district = (districtEl && districtEl.value ? districtEl.value.trim() : '') || 'Warangal';
-        var pin = (pinEl && pinEl.value ? pinEl.value.trim().replace(/[^0-9]/g, '') : '') || '506005';
-        if (pin.length !== 6) pin = '506005';
-        
-        var aadhaarNum = (aadhaarEl && aadhaarEl.value ? aadhaarEl.value.trim().replace(/[^0-9]/g, '') : '') || '123456789012';
-        if (aadhaarNum.length !== 12) aadhaarNum = '123456789012';
-        
-        var checkboxes = document.getElementsByName('vehicleCategory');
-        var selectedCats = [];
-        for (var c = 0; c < checkboxes.length; c++) {
-            if (checkboxes[c].checked) {
-                selectedCats.push(checkboxes[c].value);
-            }
-        }
-        if (selectedCats.length === 0) {
-            selectedCats = ['MCWG', 'LMV'];
+        if (!session) {
+            session = { email: 'citizen1@gmail.com', name: 'Citizen Applicant', appId: 'APP-229627' };
         }
         
-        var prefDateEl = document.getElementById('preferredTestDate');
-        var prefWindowEl = document.getElementById('preferredTimeWindow');
-        var prefRtoEl = document.getElementById('preferredRtoCode');
-        
-        var prefDate = (prefDateEl && prefDateEl.value ? prefDateEl.value : '') || new Date(Date.now() + 86400000).toISOString().split('T')[0];
-        var prefWindow = (prefWindowEl && prefWindowEl.value ? prefWindowEl.value : '') || '02:00 PM - 03:00 PM';
-        var prefRto = (prefRtoEl && prefRtoEl.value ? prefRtoEl.value.trim().toUpperCase().replace('TS', 'TG') : '') || 'TG-03';
-        
-        var foundRto = null;
-        if (typeof rtoDirectory !== 'undefined' && Array.isArray(rtoDirectory)) {
-            for (var r = 0; r < rtoDirectory.length; r++) {
-                if (rtoDirectory[r].rtoCode === prefRto) {
-                    foundRto = rtoDirectory[r];
-                    break;
-                }
-            }
-        }
-        if (!foundRto) {
-            foundRto = {
-                rtoCode: prefRto,
-                officeName: 'RTA Office (' + prefRto + ')',
-                district: district || 'Telangana',
-                address: 'RTA Regional Office, ' + (district || 'Hyderabad') + ', Telangana',
-                testCenter: 'RTO Computerized Testing Hall',
-                available: true
-            };
-        }
-        
-        // Automatic Test Slot Allocation
-        var allocated = (typeof allocateTestSlot === 'function')
-            ? allocateTestSlot(prefDate, prefWindow)
-            : { date: prefDate, time: prefWindow.split('-')[0].trim() };
-        
-        serviceDetails.state = state;
-        serviceDetails.district = district;
-        serviceDetails.pin = pin;
-        serviceDetails.aadhaarNumber = aadhaarNum;
-        serviceDetails.vehicleClasses = selectedCats;
-        serviceDetails.applicantCategory = category;
-        
-        serviceDetails.preferredTestDate = prefDate;
-        serviceDetails.preferredTestStartTime = prefWindow.split('-')[0].trim();
-        serviceDetails.preferredTestEndTime = prefWindow.split('-')[1] ? prefWindow.split('-')[1].trim() : prefWindow.split('-')[0].trim();
-        
-        serviceDetails.rtoCode = foundRto.rtoCode;
-        serviceDetails.rtoOfficeName = foundRto.officeName;
-        serviceDetails.rtoAddress = foundRto.address;
-        
-        serviceDetails.allocatedTestDate = allocated.date;
-        serviceDetails.allocatedTestStartTime = allocated.time;
-        
-        var hrParts = (allocated.time || '10:00 AM').split(':');
-        var hrVal = parseInt(hrParts[0]) || 10;
-        var minParts = (hrParts[1] || '00 AM').split(' ');
-        var minVal = (parseInt(minParts[0]) || 0) + 15;
-        var ampmVal = minParts[1] || 'AM';
-        if (minVal >= 60) {
-            minVal = minVal - 60;
-            hrVal = hrVal + 1;
-            if (hrVal === 12) ampmVal = (ampmVal === 'AM') ? 'PM' : 'AM';
-            else if (hrVal > 12) hrVal = 1;
-        }
-        serviceDetails.allocatedTestEndTime = (hrVal < 10 ? '0' + hrVal : String(hrVal)) + ':' + (minVal < 10 ? '0' + minVal : String(minVal)) + ' ' + ampmVal;
-        serviceDetails.appointmentStatus = 'Scheduled';
-        
-        var parentEl = document.getElementById('parentName');
-        serviceDetails.parentName = parentEl ? parentEl.value.trim() : '';
-        if (category === 'Minor' && !serviceDetails.parentName) {
-            alert('Parent/Guardian Name is required for minors.');
-            return;
-        }
-    } else if (licenceType === "Permanent Licence") {
-        var llNum = document.getElementById('llNumber') ? document.getElementById('llNumber').value.trim() : '';
-        var llDate = document.getElementById('llIssueDate') ? document.getElementById('llIssueDate').value : '';
-        var parentName = document.getElementById('parentName') ? document.getElementById('parentName').value.trim() : '';
-        var state = document.getElementById('applicantState') ? document.getElementById('applicantState').value.trim() : 'Telangana';
-        var district = document.getElementById('applicantDistrict') ? document.getElementById('applicantDistrict').value.trim() : 'Hyderabad';
-        var pin = document.getElementById('applicantPin') ? document.getElementById('applicantPin').value.trim() : '500004';
-        var tempAddress = document.getElementById('applicantTempAddress') ? document.getElementById('applicantTempAddress').value.trim() : '';
-        var qualification = document.getElementById('applicantQualification') ? document.getElementById('applicantQualification').value : 'Graduate';
-        var idMarks = document.getElementById('applicantIdMarks') ? document.getElementById('applicantIdMarks').value.trim() : '';
-        var bloodGroup = document.getElementById('applicantBloodGroup') ? document.getElementById('applicantBloodGroup').value : 'O+';
-
-        if (!llNum) { alert('Learner\'s Licence Application Number / LL Number is required.'); return; }
-        if (!llDate) { alert('Learner\'s Licence Issue Date is required.'); return; }
-        if (!parentName) { alert('Parent / Guardian / Spouse Name is required.'); return; }
-
-        var checkboxes = document.getElementsByName('permanentVehicleCategory');
-        var selectedCats = [];
-        for (var pc = 0; pc < checkboxes.length; pc++) {
-            if (checkboxes[pc].checked) {
-                selectedCats.push(checkboxes[pc].value);
-            }
-        }
-        if (selectedCats.length === 0) {
-            selectedCats = ['MCWG', 'LMV'];
-        }
-
-        var prefRto = document.getElementById('preferredRtoCode') ? document.getElementById('preferredRtoCode').value.trim().toUpperCase().replace('TS', 'TG') : 'TG-09';
-        var prefDate = document.getElementById('preferredTestDate') ? document.getElementById('preferredTestDate').value : '';
-        var prefWindow = document.getElementById('preferredTimeWindow') ? document.getElementById('preferredTimeWindow').value : '';
-
-        if (!prefRto) { alert('Preferred RTO office code is required.'); return; }
-        if (!prefDate) { alert('Preferred test date is required.'); return; }
-        if (!prefWindow) { alert('Preferred time window is required.'); return; }
-
-        var foundRto = null;
-        if (typeof rtoDirectory !== 'undefined' && Array.isArray(rtoDirectory)) {
-            for (var r = 0; r < rtoDirectory.length; r++) {
-                if (rtoDirectory[r].rtoCode === prefRto) {
-                    foundRto = rtoDirectory[r];
-                    break;
-                }
-            }
-        }
-        if (!foundRto) {
-            foundRto = {
-                rtoCode: prefRto,
-                officeName: 'RTA Office (' + prefRto + ')',
-                district: district || 'Telangana',
-                address: 'RTA Regional Office, ' + (district || 'Hyderabad') + ', Telangana'
-            };
-        }
-
-        var allocated = (typeof allocateTestSlot === 'function')
-            ? allocateTestSlot(prefDate, prefWindow)
-            : { date: prefDate, time: '10:00 AM' };
-
-        serviceDetails.llNumber = llNum;
-        serviceDetails.llIssueDate = llDate;
-        serviceDetails.vehicleClasses = selectedCats;
-        serviceDetails.vehicleClass = selectedCats.join(', ');
-        serviceDetails.applicantCategory = category;
-        
-        serviceDetails.parentName = parentName;
-        serviceDetails.tempAddress = tempAddress;
-        serviceDetails.state = state;
-        serviceDetails.district = district;
-        serviceDetails.pin = pin;
-        serviceDetails.qualification = qualification;
-        serviceDetails.idMarks = idMarks;
-        serviceDetails.bloodGroup = bloodGroup;
-
-        serviceDetails.preferredTestDate = prefDate;
-        serviceDetails.preferredTestStartTime = prefWindow.split('-')[0] ? prefWindow.split('-')[0].trim() : '10:00 AM';
-        serviceDetails.preferredTestEndTime = prefWindow.split('-')[1] ? prefWindow.split('-')[1].trim() : '11:00 AM';
-
-        serviceDetails.rtoCode = foundRto.rtoCode;
-        serviceDetails.rtoOfficeName = foundRto.officeName;
-        serviceDetails.rtoAddress = foundRto.address;
-
-        serviceDetails.allocatedTestDate = allocated.date;
-        serviceDetails.allocatedTestStartTime = allocated.time;
-        serviceDetails.allocatedTestEndTime = '11:00 AM';
-        serviceDetails.appointmentStatus = 'Scheduled';
-        serviceDetails.evidenceStatus = 'Awaiting Driving Test';
-
-        requireEvidence = false;
-    } else if (licenceType === "Addition of Class") {
-        var existingDl = document.getElementById('existingDlNumber') ? document.getElementById('existingDlNumber').value.trim() : '';
-        var currentClass = document.getElementById('currentVehicleClass') ? document.getElementById('currentVehicleClass').value : '';
-        var newClass = document.getElementById('newVehicleClass') ? document.getElementById('newVehicleClass').value : '';
-        var llNewNum = document.getElementById('llNewNumber') ? document.getElementById('llNewNumber').value.trim() : '';
-        if (!existingDl) { alert('Existing Driving Licence Number is required.'); return; }
-        if (!currentClass) { alert('Please select current vehicle class.'); return; }
-        if (!newClass) { alert('Please select new vehicle class requested.'); return; }
-        if (currentClass === newClass) { alert('New category must be different from current category.'); return; }
-        if (!llNewNum) { alert('Learner Licence Number for new category is required.'); return; }
-        
-        serviceDetails.existingDlNumber = existingDl;
-        serviceDetails.currentVehicleClass = currentClass;
-        serviceDetails.newVehicleClass = newClass;
-        serviceDetails.llNewNumber = llNewNum;
-        serviceDetails.applicantCategory = category;
-        
-        requireEvidence = true;
-    } else if (licenceType === "International Driving Permit") {
-        var dlNum = document.getElementById('indianDlNumber') ? document.getElementById('indianDlNumber').value.trim() : '';
-        var countries = document.getElementById('countriesToVisit') ? document.getElementById('countriesToVisit').value.trim() : '';
-        var travelInfo = document.getElementById('travelInfo') ? document.getElementById('travelInfo').value.trim() : '';
-        var vehicleCats = document.getElementById('vehicleCategoriesRequested') ? document.getElementById('vehicleCategoriesRequested').value : '';
-        if (!dlNum) { alert('Indian Driving Licence Number is required.'); return; }
-        if (!countries) { alert('Please enter countries to be visited.'); return; }
-        if (!travelInfo) { alert('Please enter travel information (e.g. Visa/ticket details).'); return; }
-        if (!vehicleCats) { alert('Please select vehicle categories.'); return; }
-        
-        serviceDetails.indianDlNumber = dlNum;
-        serviceDetails.countriesToVisit = countries;
-        serviceDetails.travelInfo = travelInfo;
-        serviceDetails.vehicleCategoriesRequested = vehicleCats;
-    } else if (licenceType === "Renewal") {
-        var dlNum = document.getElementById('dlNumber') ? document.getElementById('dlNumber').value.trim() : '';
-        var issueDate = document.getElementById('dlIssueDate') ? document.getElementById('dlIssueDate').value : '';
-        var expiryDate = document.getElementById('dlExpiryDate') ? document.getElementById('dlExpiryDate').value : '';
-        var vehicleCat = document.getElementById('vehicleCategory') ? document.getElementById('vehicleCategory').value : '';
-        if (!dlNum) { alert('Driving Licence Number is required.'); return; }
-        if (!issueDate) { alert('Licence Issue Date is required.'); return; }
-        if (!expiryDate) { alert('Licence Expiry Date is required.'); return; }
-        if (!vehicleCat) { alert('Please select a Vehicle Category.'); return; }
-        
-        serviceDetails.dlNumber = dlNum;
-        serviceDetails.dlIssueDate = issueDate;
-        serviceDetails.dlExpiryDate = expiryDate;
-        serviceDetails.vehicleCategory = vehicleCat;
-        serviceDetails.applicantCategory = category;
-    } else if (licenceType === "Duplicate") {
-        var dlNum = document.getElementById('dlNumber') ? document.getElementById('dlNumber').value.trim() : '';
-        var reason = document.getElementById('duplicateReason') ? document.getElementById('duplicateReason').value : 'Lost';
-        var details = document.getElementById('circumstances') ? document.getElementById('circumstances').value.trim() : '';
-        if (!dlNum) { alert('Existing Driving Licence Number is required.'); return; }
-        if (reason === 'Lost' && !details) {
-            alert('Please describe the circumstances of loss/destruction.');
+        var nameEl = document.getElementById('applicantName');
+        var name = nameEl ? nameEl.value.trim() : '';
+        if (!name) {
+            alert('Please enter your Full Name.');
+            if (nameEl) nameEl.focus();
             return;
         }
         
-        serviceDetails.dlNumber = dlNum;
-        serviceDetails.duplicateReason = reason;
-        serviceDetails.circumstances = details;
-    }
-    
-    // Process Documents
-    var savedDocs = [];
-    var currentDocIds = (window.currentApplicationDocs && typeof window.currentApplicationDocs === 'object')
-        ? Object.keys(window.currentApplicationDocs)
-        : [];
-        
-    for (var k = 0; k < currentDocIds.length; k++) {
-        var docId = currentDocIds[k];
-        var d = window.currentApplicationDocs[docId];
-        if (d && d.fileName) {
-            savedDocs.push({
-                id: d.id || docId,
-                name: d.name || 'Document ' + (k + 1),
-                fileName: d.fileName,
-                fileSize: d.fileSize || '0.5 MB',
-                fileType: d.fileType || 'PNG',
-                status: 'Submitted',
-                dataUrl: d.dataUrl || ''
-            });
+        var dobEl = document.getElementById('applicantDob');
+        var dob = dobEl ? dobEl.value.trim() : '';
+        if (!dob) {
+            alert('Please select your Date of Birth.');
+            if (dobEl) dobEl.focus();
+            return;
         }
-    }
-    
-    // Default fallback documents if none uploaded
-    if (savedDocs.length === 0) {
+        
+        var genderEl = document.getElementById('applicantGender');
+        var gender = genderEl ? genderEl.value : '';
+        if (!gender) {
+            alert('Please select your Gender.');
+            if (genderEl) genderEl.focus();
+            return;
+        }
+        
+        var addressEl = document.getElementById('applicantAddress');
+        var address = addressEl ? addressEl.value.trim() : '';
+        if (!address) {
+            alert('Please enter your Residential Address.');
+            if (addressEl) addressEl.focus();
+            return;
+        }
+        
+        var mobileEl = document.getElementById('applicantMobile');
+        var mobile = mobileEl ? mobileEl.value.trim().replace(/[^0-9]/g, '') : '';
+        if (!mobile || mobile.length !== 10) {
+            alert('Please enter a valid 10-digit Mobile Number.');
+            if (mobileEl) mobileEl.focus();
+            return;
+        }
+        
+        var emailEl = document.getElementById('applicantEmail');
+        var email = emailEl ? emailEl.value.trim().toLowerCase() : '';
+        if (!email || email.indexOf('@') === -1) {
+            alert('Please enter a valid Email Address.');
+            if (emailEl) emailEl.focus();
+            return;
+        }
+        
+        var categoryEl = document.getElementById('applicantCategory');
+        var category = categoryEl ? categoryEl.value : 'Adult';
+        
+        var serviceDetails = {};
+        var requireEvidence = false;
+        
         if (licenceType === "Learner's Licence") {
-            savedDocs.push({
-                id: 'aadhaar',
-                name: 'Aadhaar Document',
-                fileName: 'Aadhaar_Card_Verified.pdf',
-                fileSize: '0.45 MB',
-                fileType: 'PDF',
-                status: 'Submitted',
-                dataUrl: ''
-            });
-            savedDocs.push({
-                id: 'photo',
-                name: 'Recent Photograph',
-                fileName: 'Applicant_Photo.png',
-                fileSize: '0.35 MB',
-                fileType: 'PNG',
-                status: 'Submitted',
-                dataUrl: ''
-            });
+            var stateEl = document.getElementById('applicantState');
+            var districtEl = document.getElementById('applicantDistrict');
+            var pinEl = document.getElementById('applicantPin');
+            var aadhaarEl = document.getElementById('aadhaarNumber');
+            
+            var state = stateEl ? stateEl.value.trim() : '';
+            var district = districtEl ? districtEl.value.trim() : '';
+            var pin = pinEl ? pinEl.value.trim().replace(/[^0-9]/g, '') : '';
+            var aadhaarNum = aadhaarEl ? aadhaarEl.value.trim().replace(/[^0-9]/g, '') : '';
+
+            if (!state) { alert('Please enter your State.'); if (stateEl) stateEl.focus(); return; }
+            if (!district) { alert('Please select your District.'); if (districtEl) districtEl.focus(); return; }
+            if (!pin || pin.length !== 6) { alert('Please enter a valid 6-digit PIN Code.'); if (pinEl) pinEl.focus(); return; }
+            if (!aadhaarNum || aadhaarNum.length !== 12) { alert('Please enter a valid 12-digit Aadhaar Number.'); if (aadhaarEl) aadhaarEl.focus(); return; }
+            
+            var checkboxes = document.getElementsByName('vehicleCategory');
+            var selectedCats = [];
+            for (var c = 0; c < checkboxes.length; c++) {
+                if (checkboxes[c].checked) {
+                    selectedCats.push(checkboxes[c].value);
+                }
+            }
+            if (selectedCats.length === 0) {
+                alert('Please select at least one Vehicle Category.');
+                return;
+            }
+            
+            var prefDateEl = document.getElementById('preferredTestDate');
+            var prefWindowEl = document.getElementById('preferredTimeWindow');
+            var prefRtoEl = document.getElementById('preferredRtoCode');
+            
+            var prefDate = prefDateEl ? prefDateEl.value : '';
+            var prefWindow = prefWindowEl ? prefWindowEl.value : '';
+            var prefRto = prefRtoEl ? prefRtoEl.value.trim().toUpperCase().replace('TS', 'TG') : '';
+
+            if (!prefDate) { alert('Please select your preferred test date.'); if (prefDateEl) prefDateEl.focus(); return; }
+            if (!prefWindow) { alert('Please select your preferred 1-hour time slot window.'); if (prefWindowEl) prefWindowEl.focus(); return; }
+            if (!prefRto) { alert('Please enter your preferred RTO office code (e.g. TG-03 or TG-09).'); if (prefRtoEl) prefRtoEl.focus(); return; }
+            
+            var foundRto = null;
+            if (typeof rtoDirectory !== 'undefined' && Array.isArray(rtoDirectory)) {
+                for (var r = 0; r < rtoDirectory.length; r++) {
+                    if (rtoDirectory[r].rtoCode === prefRto) {
+                        foundRto = rtoDirectory[r];
+                        break;
+                    }
+                }
+            }
+            if (!foundRto) {
+                foundRto = {
+                    rtoCode: prefRto,
+                    officeName: 'RTA Office (' + prefRto + ')',
+                    district: district || 'Telangana',
+                    address: 'RTA Regional Office, ' + (district || 'Telangana'),
+                    testCenter: 'RTO Computerized Testing Hall',
+                    available: true
+                };
+            }
+            
+            var allocated = (typeof allocateTestSlot === 'function')
+                ? allocateTestSlot(prefDate, prefWindow)
+                : { date: prefDate, time: prefWindow.split('-')[0].trim() };
+            
+            serviceDetails.state = state;
+            serviceDetails.district = district;
+            serviceDetails.pin = pin;
+            serviceDetails.aadhaarNumber = aadhaarNum;
+            serviceDetails.vehicleClasses = selectedCats;
+            serviceDetails.applicantCategory = category;
+            
+            serviceDetails.preferredTestDate = prefDate;
+            serviceDetails.preferredTestStartTime = prefWindow.split('-')[0].trim();
+            serviceDetails.preferredTestEndTime = prefWindow.split('-')[1] ? prefWindow.split('-')[1].trim() : prefWindow.split('-')[0].trim();
+            
+            serviceDetails.rtoCode = foundRto.rtoCode;
+            serviceDetails.rtoOfficeName = foundRto.officeName;
+            serviceDetails.rtoAddress = foundRto.address;
+            
+            serviceDetails.allocatedTestDate = allocated.date;
+            serviceDetails.allocatedTestStartTime = allocated.time;
+            
+            var hrParts = (allocated.time || '10:00 AM').split(':');
+            var hrVal = parseInt(hrParts[0]) || 10;
+            var minParts = (hrParts[1] || '00 AM').split(' ');
+            var minVal = (parseInt(minParts[0]) || 0) + 15;
+            var ampmVal = minParts[1] || 'AM';
+            if (minVal >= 60) {
+                minVal = minVal - 60;
+                hrVal = hrVal + 1;
+                if (hrVal === 12) ampmVal = (ampmVal === 'AM') ? 'PM' : 'AM';
+                else if (hrVal > 12) hrVal = 1;
+            }
+            serviceDetails.allocatedTestEndTime = (hrVal < 10 ? '0' + hrVal : String(hrVal)) + ':' + (minVal < 10 ? '0' + minVal : String(minVal)) + ' ' + ampmVal;
+            serviceDetails.appointmentStatus = 'Scheduled';
+            
+            var parentEl = document.getElementById('parentName');
+            serviceDetails.parentName = parentEl ? parentEl.value.trim() : '';
+            if (category === 'Minor' && !serviceDetails.parentName) {
+                alert('Parent/Guardian Name is required for minors.');
+                if (parentEl) parentEl.focus();
+                return;
+            }
+        } else if (licenceType === "Permanent Licence") {
+            var llNum = document.getElementById('llNumber') ? document.getElementById('llNumber').value.trim() : '';
+            var llDate = document.getElementById('llIssueDate') ? document.getElementById('llIssueDate').value : '';
+            var parentName = document.getElementById('parentName') ? document.getElementById('parentName').value.trim() : '';
+            var state = document.getElementById('applicantState') ? document.getElementById('applicantState').value.trim() : '';
+            var district = document.getElementById('applicantDistrict') ? document.getElementById('applicantDistrict').value.trim() : '';
+            var pin = document.getElementById('applicantPin') ? document.getElementById('applicantPin').value.trim() : '';
+            var tempAddress = document.getElementById('applicantTempAddress') ? document.getElementById('applicantTempAddress').value.trim() : '';
+            var qualification = document.getElementById('applicantQualification') ? document.getElementById('applicantQualification').value : 'Graduate';
+            var idMarks = document.getElementById('applicantIdMarks') ? document.getElementById('applicantIdMarks').value.trim() : '';
+            var bloodGroup = document.getElementById('applicantBloodGroup') ? document.getElementById('applicantBloodGroup').value : 'O+';
+
+            if (!llNum) { alert('Learner\'s Licence Application Number / LL Number is required.'); return; }
+            if (!llDate) { alert('Learner\'s Licence Issue Date is required.'); return; }
+            if (!parentName) { alert('Parent / Guardian / Spouse Name is required.'); return; }
+            if (!state) { alert('State is required.'); return; }
+            if (!district) { alert('District is required.'); return; }
+            if (!pin) { alert('PIN Code is required.'); return; }
+
+            var checkboxes = document.getElementsByName('permanentVehicleCategory');
+            var selectedCats = [];
+            for (var pc = 0; pc < checkboxes.length; pc++) {
+                if (checkboxes[pc].checked) {
+                    selectedCats.push(checkboxes[pc].value);
+                }
+            }
+            if (selectedCats.length === 0) {
+                alert('Please select at least one vehicle category for your Permanent Licence.');
+                return;
+            }
+
+            var prefRto = document.getElementById('preferredRtoCode') ? document.getElementById('preferredRtoCode').value.trim().toUpperCase().replace('TS', 'TG') : '';
+            var prefDate = document.getElementById('preferredTestDate') ? document.getElementById('preferredTestDate').value : '';
+            var prefWindow = document.getElementById('preferredTimeWindow') ? document.getElementById('preferredTimeWindow').value : '';
+
+            if (!prefRto) { alert('Preferred RTO office code is required.'); return; }
+            if (!prefDate) { alert('Preferred test date is required.'); return; }
+            if (!prefWindow) { alert('Preferred 1-hour time slot window is required.'); return; }
+
+            var foundRto = null;
+            if (typeof rtoDirectory !== 'undefined' && Array.isArray(rtoDirectory)) {
+                for (var r = 0; r < rtoDirectory.length; r++) {
+                    if (rtoDirectory[r].rtoCode === prefRto) {
+                        foundRto = rtoDirectory[r];
+                        break;
+                    }
+                }
+            }
+            if (!foundRto) {
+                foundRto = {
+                    rtoCode: prefRto,
+                    officeName: 'RTA Office (' + prefRto + ')',
+                    district: district || 'Telangana',
+                    address: 'RTA Regional Office, ' + (district || 'Hyderabad') + ', Telangana'
+                };
+            }
+
+            var allocated = (typeof allocateTestSlot === 'function')
+                ? allocateTestSlot(prefDate, prefWindow)
+                : { date: prefDate, time: '10:00 AM' };
+
+            serviceDetails.llNumber = llNum;
+            serviceDetails.llIssueDate = llDate;
+            serviceDetails.vehicleClasses = selectedCats;
+            serviceDetails.vehicleClass = selectedCats.join(', ');
+            serviceDetails.applicantCategory = category;
+            
+            serviceDetails.parentName = parentName;
+            serviceDetails.tempAddress = tempAddress;
+            serviceDetails.state = state;
+            serviceDetails.district = district;
+            serviceDetails.pin = pin;
+            serviceDetails.qualification = qualification;
+            serviceDetails.idMarks = idMarks;
+            serviceDetails.bloodGroup = bloodGroup;
+
+            serviceDetails.preferredTestDate = prefDate;
+            serviceDetails.preferredTestStartTime = prefWindow.split('-')[0] ? prefWindow.split('-')[0].trim() : '10:00 AM';
+            serviceDetails.preferredTestEndTime = prefWindow.split('-')[1] ? prefWindow.split('-')[1].trim() : '11:00 AM';
+
+            serviceDetails.rtoCode = foundRto.rtoCode;
+            serviceDetails.rtoOfficeName = foundRto.officeName;
+            serviceDetails.rtoAddress = foundRto.address;
+
+            serviceDetails.allocatedTestDate = allocated.date;
+            serviceDetails.allocatedTestStartTime = allocated.time;
+            serviceDetails.allocatedTestEndTime = '11:00 AM';
+            serviceDetails.appointmentStatus = 'Scheduled';
+            serviceDetails.evidenceStatus = 'Awaiting Driving Test';
+
+            requireEvidence = false;
+        } else if (licenceType === "Addition of Class") {
+            var existingDl = document.getElementById('existingDlNumber') ? document.getElementById('existingDlNumber').value.trim() : '';
+            var currentClass = document.getElementById('currentVehicleClass') ? document.getElementById('currentVehicleClass').value : '';
+            var newClass = document.getElementById('newVehicleClass') ? document.getElementById('newVehicleClass').value : '';
+            var llNewNum = document.getElementById('llNewNumber') ? document.getElementById('llNewNumber').value.trim() : '';
+            if (!existingDl) { alert('Existing Driving Licence Number is required.'); return; }
+            if (!currentClass) { alert('Please select current vehicle class.'); return; }
+            if (!newClass) { alert('Please select new vehicle class requested.'); return; }
+            if (currentClass === newClass) { alert('New category must be different from current category.'); return; }
+            if (!llNewNum) { alert('Learner Licence Number for new category is required.'); return; }
+            
+            serviceDetails.existingDlNumber = existingDl;
+            serviceDetails.currentVehicleClass = currentClass;
+            serviceDetails.newVehicleClass = newClass;
+            serviceDetails.llNewNumber = llNewNum;
+            serviceDetails.applicantCategory = category;
+            
+            requireEvidence = true;
+        } else if (licenceType === "International Driving Permit") {
+            var dlNum = document.getElementById('indianDlNumber') ? document.getElementById('indianDlNumber').value.trim() : '';
+            var countries = document.getElementById('countriesToVisit') ? document.getElementById('countriesToVisit').value.trim() : '';
+            var travelInfo = document.getElementById('travelInfo') ? document.getElementById('travelInfo').value.trim() : '';
+            var vehicleCats = document.getElementById('vehicleCategoriesRequested') ? document.getElementById('vehicleCategoriesRequested').value : '';
+            if (!dlNum) { alert('Indian Driving Licence Number is required.'); return; }
+            if (!countries) { alert('Please enter countries to be visited.'); return; }
+            if (!travelInfo) { alert('Please enter travel information (e.g. Visa/ticket details).'); return; }
+            if (!vehicleCats) { alert('Please select vehicle categories.'); return; }
+            
+            serviceDetails.indianDlNumber = dlNum;
+            serviceDetails.countriesToVisit = countries;
+            serviceDetails.travelInfo = travelInfo;
+            serviceDetails.vehicleCategoriesRequested = vehicleCats;
+        } else if (licenceType === "Renewal") {
+            var dlNum = document.getElementById('dlNumber') ? document.getElementById('dlNumber').value.trim() : '';
+            var issueDate = document.getElementById('dlIssueDate') ? document.getElementById('dlIssueDate').value : '';
+            var expiryDate = document.getElementById('dlExpiryDate') ? document.getElementById('dlExpiryDate').value : '';
+            var vehicleCat = document.getElementById('vehicleCategory') ? document.getElementById('vehicleCategory').value : '';
+            if (!dlNum) { alert('Driving Licence Number is required.'); return; }
+            if (!issueDate) { alert('Licence Issue Date is required.'); return; }
+            if (!expiryDate) { alert('Licence Expiry Date is required.'); return; }
+            if (!vehicleCat) { alert('Please select a Vehicle Category.'); return; }
+            
+            serviceDetails.dlNumber = dlNum;
+            serviceDetails.dlIssueDate = issueDate;
+            serviceDetails.dlExpiryDate = expiryDate;
+            serviceDetails.vehicleCategory = vehicleCat;
+            serviceDetails.applicantCategory = category;
+        } else if (licenceType === "Duplicate") {
+            var dlNum = document.getElementById('dlNumber') ? document.getElementById('dlNumber').value.trim() : '';
+            var reason = document.getElementById('duplicateReason') ? document.getElementById('duplicateReason').value : 'Lost';
+            var details = document.getElementById('circumstances') ? document.getElementById('circumstances').value.trim() : '';
+            if (!dlNum) { alert('Existing Driving Licence Number is required.'); return; }
+            if (reason === 'Lost' && !details) {
+                alert('Please describe the circumstances of loss/destruction.');
+                return;
+            }
+            
+            serviceDetails.dlNumber = dlNum;
+            serviceDetails.duplicateReason = reason;
+            serviceDetails.circumstances = details;
         }
-    }
-    
-    var testEvidenceObj = null;
-    if (requireEvidence && window.currentTestEvidence) {
-        var video = window.currentTestEvidence.video || {};
-        var aiReport = window.currentTestEvidence.aiReport || {};
-        testEvidenceObj = {
-            video: {
-                fileName: video.fileName || 'Driving_Test_Clip.mp4',
-                fileSize: video.fileSize || '12.4 MB',
-                fileType: video.fileType || 'video/mp4',
-                timestamp: video.timestamp || new Date().toISOString(),
-                dataUrl: video.dataUrl || '',
-                status: 'Uploaded'
-            },
-            aiReport: {
-                fileName: aiReport.fileName || 'AI_Driving_Report.pdf',
-                fileSize: aiReport.fileSize || '1.8 MB',
-                fileType: aiReport.fileType || 'application/pdf',
-                timestamp: aiReport.timestamp || new Date().toISOString(),
-                dataUrl: aiReport.dataUrl || '',
-                status: 'Uploaded'
-            },
-            locked: true
+        
+        // Show live loading spinner on button
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:8px;"></i> Pushing Live Data to DriveSetu Render Cloud & Supabase...';
+        }
+
+        // Process Documents
+        var savedDocs = [];
+        var currentDocIds = (window.currentApplicationDocs && typeof window.currentApplicationDocs === 'object')
+            ? Object.keys(window.currentApplicationDocs)
+            : [];
+            
+        for (var k = 0; k < currentDocIds.length; k++) {
+            var docId = currentDocIds[k];
+            var d = window.currentApplicationDocs[docId];
+            if (d && d.fileName) {
+                savedDocs.push({
+                    id: d.id || docId,
+                    name: d.name || 'Document ' + (k + 1),
+                    fileName: d.fileName,
+                    fileSize: d.fileSize || '0.5 MB',
+                    fileType: d.fileType || 'PNG',
+                    status: 'Submitted',
+                    dataUrl: d.dataUrl || ''
+                });
+            }
+        }
+        
+        // Default fallback documents if none uploaded
+        if (savedDocs.length === 0) {
+            if (licenceType === "Learner's Licence") {
+                savedDocs.push({
+                    id: 'aadhaar',
+                    name: 'Aadhaar Document',
+                    fileName: 'Aadhaar_Card_Verified.pdf',
+                    fileSize: '0.45 MB',
+                    fileType: 'PDF',
+                    status: 'Submitted',
+                    dataUrl: ''
+                });
+                savedDocs.push({
+                    id: 'photo',
+                    name: 'Recent Photograph',
+                    fileName: 'Applicant_Photo.png',
+                    fileSize: '0.35 MB',
+                    fileType: 'PNG',
+                    status: 'Submitted',
+                    dataUrl: ''
+                });
+            }
+        }
+        
+        var testEvidenceObj = null;
+        if (requireEvidence && window.currentTestEvidence) {
+            var video = window.currentTestEvidence.video || {};
+            var aiReport = window.currentTestEvidence.aiReport || {};
+            testEvidenceObj = {
+                video: {
+                    fileName: video.fileName || 'Driving_Test_Clip.mp4',
+                    fileSize: video.fileSize || '12.4 MB',
+                    fileType: video.fileType || 'video/mp4',
+                    timestamp: video.timestamp || new Date().toISOString(),
+                    dataUrl: video.dataUrl || '',
+                    status: 'Uploaded'
+                },
+                aiReport: {
+                    fileName: aiReport.fileName || 'AI_Driving_Report.pdf',
+                    fileSize: aiReport.fileSize || '1.8 MB',
+                    fileType: aiReport.fileType || 'application/pdf',
+                    timestamp: aiReport.timestamp || new Date().toISOString(),
+                    dataUrl: aiReport.dataUrl || '',
+                    status: 'Uploaded'
+                },
+                locked: true
+            };
+        }
+        
+        var apps = (typeof getStoredApplications === 'function') ? getStoredApplications() : [];
+        var reviews = (typeof getStoredReviews === 'function') ? getStoredReviews() : [];
+        var newId = 'APP-' + String(Date.now()).slice(-3) + String(Math.floor(100 + Math.random() * 900));
+        
+        var appDetailsObj = {
+            fullName: name,
+            dob: dob,
+            gender: gender,
+            address: address,
+            mobile: mobile,
+            email: email
         };
-    }
-    
-    var apps = (typeof getStoredApplications === 'function') ? getStoredApplications() : [];
-    var reviews = (typeof getStoredReviews === 'function') ? getStoredReviews() : [];
-    var newId = 'APP-' + String(Date.now()).slice(-3) + String(Math.floor(100 + Math.random() * 900));
-    
-    var appDetailsObj = {
-        fullName: name,
-        dob: dob,
-        gender: gender,
-        address: address,
-        mobile: mobile,
-        email: email
-    };
-    
-    var nextWorkflow = 'RTO Officer Document Review';
-    if (licenceType === "Learner's Licence") {
-        nextWorkflow = 'Document Verification';
-    } else if (requireEvidence) {
-        nextWorkflow = 'RTO Officer AI Track & Video Telemetry Audit';
-    } else if (licenceType === "Renewal") {
-        var expYear = new Date(expiryDate).getFullYear();
-        var currentYear = new Date().getFullYear();
-        if (expYear < currentYear - 1) {
-            nextWorkflow = 'DL Retest required due to expiration period exceeding 1 year';
+        
+        var nextWorkflow = 'RTO Officer Document Review';
+        if (licenceType === "Learner's Licence") {
+            nextWorkflow = 'Document Verification';
+        } else if (requireEvidence) {
+            nextWorkflow = 'RTO Officer AI Track & Video Telemetry Audit';
+        } else if (licenceType === "Renewal") {
+            var expYear = new Date(expiryDate).getFullYear();
+            var currentYear = new Date().getFullYear();
+            if (expYear < currentYear - 1) {
+                nextWorkflow = 'DL Retest required due to expiration period exceeding 1 year';
+            }
         }
-    }
-    
-    var newApp = {
-        id: newId,
-        name: name,
-        type: licenceType,
-        status: (licenceType === "Learner's Licence") ? 'Submitted' : 'Pending',
-        date: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
-        citizenId: email || (session ? session.email : 'citizen1@gmail.com'),
-        mobile: mobile,
-        address: address,
-        aadhaarNumber: serviceDetails.aadhaarNumber || '',
-        applicantDetails: appDetailsObj,
-        serviceDetails: serviceDetails,
-        documents: savedDocs,
-        testEvidence: testEvidenceObj,
-        reviewStage: requireEvidence ? 'AI Track Audit' : 'Document Verification',
-        assignedOfficer: '',
-        reviewHistory: [],
-        remarks: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        source: 'Digital Application (DriveSetu Portal)'
-    };
+        
+        var newApp = {
+            id: newId,
+            name: name,
+            type: licenceType,
+            status: (licenceType === "Learner's Licence") ? 'Submitted' : 'Pending',
+            date: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
+            citizenId: email || (session ? session.email : 'citizen1@gmail.com'),
+            mobile: mobile,
+            address: address,
+            aadhaarNumber: serviceDetails.aadhaarNumber || '',
+            applicantDetails: appDetailsObj,
+            serviceDetails: serviceDetails,
+            documents: savedDocs,
+            testEvidence: testEvidenceObj,
+            reviewStage: requireEvidence ? 'AI Track Audit' : 'Document Verification',
+            assignedOfficer: '',
+            reviewHistory: [],
+            remarks: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            source: 'Digital Application (DriveSetu Portal)'
+        };
 
-    // Random allotment among the 3 RTO Officers
-    var officerPool = [
-        { officerId: 'OFF-ANNAN', email: 'annan@drivesetu.com', name: 'Officer Annan', rtoCode: 'TG-03' },
-        { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' },
-        { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' }
-    ];
-    var assignedOfficerObj = officerPool[Math.floor(Math.random() * officerPool.length)];
+        // Random allotment among the 3 RTO Officers
+        var officerPool = [
+            { officerId: 'OFF-ANNAN', email: 'annan@drivesetu.com', name: 'Officer Annan', rtoCode: 'TG-03' },
+            { officerId: 'OFF-RAHIL', email: 'rahil@drivesetu.com', name: 'Officer Rahil', rtoCode: 'TG-05' },
+            { officerId: 'OFF-SRIVATHSAV', email: 'srivathsav@drivesetu.com', name: 'Officer Srivathsav', rtoCode: 'TG-08' }
+        ];
+        var assignedOfficerObj = officerPool[Math.floor(Math.random() * officerPool.length)];
 
-    newApp.assignedOfficerEmail = assignedOfficerObj.email;
-    newApp.assignedOfficerId = assignedOfficerObj.officerId;
-    newApp.assignedOfficerName = assignedOfficerObj.name;
-    newApp.assignedOfficer = assignedOfficerObj.name;
-    newApp.evaluator1 = {
-        officerId: assignedOfficerObj.officerId,
-        rtoCode: assignedOfficerObj.rtoCode,
-        name: assignedOfficerObj.name,
-        decision: null,
-        reason: null
-    };
+        newApp.assignedOfficerEmail = assignedOfficerObj.email;
+        newApp.assignedOfficerId = assignedOfficerObj.officerId;
+        newApp.assignedOfficerName = assignedOfficerObj.name;
+        newApp.assignedOfficer = assignedOfficerObj.name;
+        newApp.evaluator1 = {
+            officerId: assignedOfficerObj.officerId,
+            rtoCode: assignedOfficerObj.rtoCode,
+            name: assignedOfficerObj.name,
+            decision: null,
+            reason: null
+        };
 
-    if (serviceDetails.vehicleClasses) {
-        newApp.vehicleClasses = serviceDetails.vehicleClasses;
-    }
+        if (serviceDetails.vehicleClasses) {
+            newApp.vehicleClasses = serviceDetails.vehicleClasses;
+        }
 
-    if (licenceType === "Permanent Licence") {
-        var crossRtoCodes = ['TG-01','TG-02','TG-04','TG-05','TG-06','TG-07','TG-08','TG-10','TG-12','TG-14'];
-        var localCode = (serviceDetails.rtoCode || 'TG-03');
-        var eligibleCodes = crossRtoCodes.filter(function(c) { return c !== localCode; });
-        newApp.allocatedRtoCode = eligibleCodes[Math.floor(Math.random() * eligibleCodes.length)] || 'TG-05';
-        newApp.serviceType = 'Permanent Licence';
-        newApp.learnerLicenceApplicationId = serviceDetails.llNumber || '';
-    }
+        if (licenceType === "Permanent Licence") {
+            var crossRtoCodes = ['TG-01','TG-02','TG-04','TG-05','TG-06','TG-07','TG-08','TG-10','TG-12','TG-14'];
+            var localCode = (serviceDetails.rtoCode || 'TG-03');
+            var eligibleCodes = crossRtoCodes.filter(function(c) { return c !== localCode; });
+            newApp.allocatedRtoCode = eligibleCodes[Math.floor(Math.random() * eligibleCodes.length)] || 'TG-05';
+            newApp.serviceType = 'Permanent Licence';
+            newApp.learnerLicenceApplicationId = serviceDetails.llNumber || '';
+        }
 
-    apps.unshift(newApp);
-    if (typeof saveStoredApplications === 'function') {
-        saveStoredApplications(apps);
-    }
-    
-    if (typeof syncApplicationToSupabase === 'function') {
-        syncApplicationToSupabase(newApp);
-    }
-    
-    var newReview = {
-        appId: newId,
-        candidateName: name,
-        licenceType: licenceType,
-        mp4Name: requireEvidence ? (testEvidenceObj ? testEvidenceObj.video.fileName : 'N/A') : 'N/A',
-        pdfName: requireEvidence ? (testEvidenceObj ? testEvidenceObj.aiReport.fileName : 'N/A') : 'N/A',
-        videoDataUrl: requireEvidence ? (testEvidenceObj ? testEvidenceObj.video.dataUrl : '') : '',
-        pdfDataUrl: requireEvidence ? (testEvidenceObj ? testEvidenceObj.aiReport.dataUrl : '') : '',
-        notes: 'Submitted for verification. Next stage: ' + nextWorkflow,
-        submittedOn: newApp.date,
-        status: 'Pending Review',
-        reviewedBy: null
-    };
-    reviews.unshift(newReview);
-    if (typeof saveStoredReviews === 'function') {
-        saveStoredReviews(reviews);
-    }
-    
-    window.currentApplicationDocs = {};
-    window.currentTestEvidence = {};
-    
-    renderSubmissionSuccess(newApp, nextWorkflow);
+        apps.unshift(newApp);
+        if (typeof saveStoredApplications === 'function') {
+            saveStoredApplications(apps);
+        }
+        
+        // Live cloud sync to Supabase Database & Render API
+        var syncResult = null;
+        if (typeof syncApplicationToSupabase === 'function') {
+            try {
+                syncResult = await syncApplicationToSupabase(newApp);
+                console.log("✅ Live database sync response:", syncResult);
+            } catch(syncErr) {
+                console.warn("⚠️ Live sync warning:", syncErr);
+            }
+        }
+        
+        var newReview = {
+            appId: newId,
+            candidateName: name,
+            licenceType: licenceType,
+            mp4Name: requireEvidence ? (testEvidenceObj ? testEvidenceObj.video.fileName : 'N/A') : 'N/A',
+            pdfName: requireEvidence ? (testEvidenceObj ? testEvidenceObj.aiReport.fileName : 'N/A') : 'N/A',
+            videoDataUrl: requireEvidence ? (testEvidenceObj ? testEvidenceObj.video.dataUrl : '') : '',
+            pdfDataUrl: requireEvidence ? (testEvidenceObj ? testEvidenceObj.aiReport.dataUrl : '') : '',
+            notes: 'Submitted for verification. Next stage: ' + nextWorkflow,
+            submittedOn: newApp.date,
+            status: 'Pending Review',
+            reviewedBy: null
+        };
+        reviews.unshift(newReview);
+        if (typeof saveStoredReviews === 'function') {
+            saveStoredReviews(reviews);
+        }
+        
+        window.currentApplicationDocs = {};
+        window.currentTestEvidence = {};
+        
+        if (licenceType === "Permanent Licence") {
+            var appDiv = document.getElementById('app');
+            if (appDiv) appDiv.innerHTML = renderPermanentSuccess(newApp);
+        } else {
+            renderSubmissionSuccess(newApp, nextWorkflow);
+        }
     } catch(err) {
         console.error("submitServiceForm caught error:", err);
-        var fallbackApp = {
-            id: 'APP-' + String(Date.now()).slice(-3) + String(Math.floor(100 + Math.random() * 900)),
-            name: (document.getElementById('applicantName') ? document.getElementById('applicantName').value : '') || 'Citizen Applicant',
-            type: "Learner's Licence",
-            status: 'Submitted',
-            date: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
-            serviceDetails: {
-                rtoCode: 'TG-03',
-                rtoOfficeName: 'RTA Warangal Urban (Timmapur)',
-                rtoAddress: 'RTA Warangal, Khammam Road T-Junction, Timmapur (Sivar), Rangasaipet, Telangana - 506005',
-                allocatedTestDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-                allocatedTestStartTime: '02:00 PM',
-                allocatedTestEndTime: '03:00 PM',
-                vehicleClasses: ['MCWG', 'LMV']
-            },
-            documents: []
-        };
-        renderSubmissionSuccess(fallbackApp, 'Document Verification');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHTML || 'Submit Application';
+        }
+        alert('Application submission error: ' + (err.message || 'Please check your connection and try again.'));
     }
 }
 

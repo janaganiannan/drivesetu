@@ -4,65 +4,7 @@ function safeParseJSON(str, fallback) {
 }
 
 // ─── MOCK DATA ───
-var applications = [
-    {
-        id: 'APP-DEMO-001',
-        name: 'Demo Applicant',
-        type: 'Permanent Licence',
-        status: 'Pending RTO Review',
-        date: '13 Aug 2026',
-        citizenId: 'demo@drivesetu.com',
-        vehicleClasses: ['MCWG', 'LMV'],
-        evidenceStatus: 'LOCKED',
-        evidenceId: 'EV-DEMO-001',
-        integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        evaluationStatus: 'BOTH_PENDING',
-        evaluator1: { officerId: 'OFF-17', rtoCode: 'TG-08', name: 'Officer 17 (V. Reddy)', decision: null, reason: null },
-        evaluator2: { officerId: 'OFF-31', rtoCode: 'TG-12', name: 'Officer 31 (M. Sharma)', decision: null, reason: null },
-        serviceDetails: {
-            rtoCode: 'TG-03',
-            rtoOfficeName: 'RTA Medchal / Hyderabad West',
-            rtoAddress: 'Kukatpally, Medchal-Malkajgiri, Hyderabad',
-            vehicleClasses: ['MCWG', 'LMV'],
-            vehicleClass: 'MCWG, LMV',
-            llNumber: 'LL-DEMO-001',
-            allocatedTestDate: '13 Aug 2026',
-            allocatedTestStartTime: '10:00 AM',
-            allocatedTestEndTime: '11:00 AM',
-            appointmentStatus: 'Test Completed & Evidence Locked'
-        },
-        testEvidence: {
-            applicationId: 'APP-DEMO-001',
-            videoId: 'VIDEO-DEMO-001',
-            telemetryId: 'TEL-DEMO-001',
-            reportId: 'REPORT-DEMO-001',
-            evidenceId: 'EV-DEMO-001',
-            integrityHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-            testCentreRto: 'TG-03',
-            video: {
-                fileName: 'APP-DEMO-001_TestVideo.mp4',
-                fileSize: '28.4MB',
-                fileType: 'video/mp4',
-                timestamp: '2026-08-13T10:15:00Z',
-                dataUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-                status: 'Secured & Locked'
-            },
-            aiReport: {
-                fileName: 'APP-DEMO-001_AI_Report.pdf',
-                fileSize: '1.4MB',
-                fileType: 'application/pdf',
-                timestamp: '2026-08-13T10:16:30Z',
-                status: 'Secured & Locked'
-            },
-            locked: true
-        }
-    },
-    { id: 'LL-DEMO-001', name: 'Rahul Sharma', type: "Learner's Licence", status: 'Approved', date: '12 May 2026', citizenId: 'citizen@drivesetu.com', isPrototypeDemo: true, vehicleClasses: ['MCWG', 'LMV'] },
-    { id: 'APP-206500', name: 'Rahul Sharma', type: 'Permanent Licence', status: 'Submitted', date: '15 Aug 2026', citizenId: 'citizen@drivesetu.com', vehicleClasses: ['MCWG', 'LMV'] },
-    { id: 'APP-102', name: 'Priya Singh', type: 'Permanent Licence', status: 'Approved', date: '12 Jul 2026', citizenId: 'priya@drivesetu.com' },
-    { id: 'APP-103', name: 'Amit Kumar', type: 'Renewal', status: 'Pending', date: '14 Jul 2026', citizenId: 'amit@drivesetu.com' },
-    { id: 'APP-104', name: 'Sunita Devi', type: 'Duplicate', status: 'Approved', date: '15 Jul 2026', citizenId: 'sunita@drivesetu.com' },
-];
+var applications = [];
 
 // ─── CITIZEN USER ACCOUNTS ───
 // Dynamic citizen account store (authenticates directly with Supabase database)

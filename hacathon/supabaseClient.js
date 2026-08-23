@@ -341,11 +341,22 @@ async function fetchUserFiles() {
     return data;
 }
 
+function getApiBaseUrl() {
+    if (typeof window === 'undefined') return '';
+    if (window.DRIVESETU_API_URL) return window.DRIVESETU_API_URL;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        if (window.location.port !== '3000' && window.location.port !== '') {
+            return 'http://' + window.location.hostname + ':3000';
+        }
+    }
+    return '';
+}
+
 /**
  * Sync Citizen Application Data & Document Storage Paths to Supabase Tables (citizen_documents & citizen_info)
  */
 async function syncApplicationToSupabase(app) {
-    if (!app || !app.id) return;
+    if (!app || !app.id) return { success: false, error: 'No application provided' };
     
     var details = app.applicantDetails || {};
     var service = app.serviceDetails || {};
@@ -381,7 +392,51 @@ async function syncApplicationToSupabase(app) {
     });
 
     var videoPath = (evidence && evidence.video) ? (evidence.video.fileName || '') : '';
-    var aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
+    var rawAiReport = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
+
+    // Encode all application fields losslessly into metadata
+    var metaPayload = {
+        fullName: cleanName,
+        dob: details.dob || app.dob || '',
+        gender: details.gender || app.gender || '',
+        category: details.applicantCategory || service.applicantCategory || app.category || '',
+        parentName: details.parentName || service.parentName || app.parentName || '',
+        state: details.state || service.state || app.state || '',
+        district: details.district || service.district || app.district || '',
+        pin: details.pin || service.pin || app.pin || '',
+        vehicleClasses: service.vehicleClasses || app.vehicleClasses || [],
+        allocatedTestDate: service.allocatedTestDate || service.preferredTestDate || '',
+        allocatedTestStartTime: service.allocatedTestStartTime || service.preferredTestStartTime || '',
+        allocatedTestEndTime: service.allocatedTestEndTime || service.preferredTestEndTime || '',
+        preferredTestDate: service.preferredTestDate || '',
+        preferredTestStartTime: service.preferredTestStartTime || '',
+        preferredTestEndTime: service.preferredTestEndTime || '',
+        rtoOfficeName: service.rtoOfficeName || '',
+        rtoAddress: service.rtoAddress || '',
+        qualification: service.qualification || '',
+        idMarks: service.idMarks || '',
+        bloodGroup: service.bloodGroup || '',
+        tempAddress: service.tempAddress || '',
+        llNumber: service.llNumber || service.llNewNumber || app.learnerLicenceApplicationId || '',
+        llIssueDate: service.llIssueDate || '',
+        existingDlNumber: service.existingDlNumber || service.dlNumber || service.indianDlNumber || '',
+        dlIssueDate: service.dlIssueDate || '',
+        dlExpiryDate: service.dlExpiryDate || '',
+        duplicateReason: service.duplicateReason || '',
+        circumstances: service.circumstances || '',
+        countriesToVisit: service.countriesToVisit || '',
+        travelInfo: service.travelInfo || '',
+        vehicleCategoriesRequested: service.vehicleCategoriesRequested || '',
+        documents: docs,
+        testEvidence: evidence,
+        assignedOfficerName: app.assignedOfficerName || app.assignedOfficer || '',
+        assignedOfficerEmail: app.assignedOfficerEmail || '',
+        assignedOfficerId: app.assignedOfficerId || '',
+        reviewStage: app.reviewStage || '',
+        remarks: app.remarks || ''
+    };
+
+    var encodedAiReportPath = (rawAiReport || '') + '|||' + JSON.stringify(metaPayload);
 
     var docPayload = {
         full_name: cleanName,
@@ -397,24 +452,27 @@ async function syncApplicationToSupabase(app) {
         proof_address_doc_path: addressPath || null,
         medical_certificate_doc_path: medicalPath || null,
         test_video_path: videoPath || null,
-        ai_report_path: aiReportPath || null,
+        ai_report_path: encodedAiReportPath,
         test_result: app.status === 'Approved' ? 'PASS' : (app.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
         updated_at: new Date().toISOString()
     };
 
-    console.log("🚀 Syncing Live Application Data directly to Supabase citizen_documents:", docPayload);
+    console.log("🚀 Syncing Comprehensive Application Data directly to Supabase citizen_documents:", docPayload);
 
     // 1. Primary Sync via Backend API (Service Role)
     try {
-        const resp = await fetch('/api/submit-citizen-application', {
+        const apiUrl = getApiBaseUrl() + '/api/submit-citizen-application';
+        const resp = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ application: app })
+            body: JSON.stringify({ application: app, docPayload: docPayload })
         });
-        const result = await resp.json();
-        if (resp.ok && result.success) {
-            console.log("✅ Application & Documents successfully stored in Supabase citizen_documents via server API");
-            return result;
+        if (resp.ok) {
+            const result = await resp.json();
+            if (result.success) {
+                console.log("✅ Application & Documents successfully stored in Supabase citizen_documents via server API");
+                return { success: true, applicationId: app.id, syncedToLiveDb: true };
+            }
         }
     } catch(apiErr) {
         console.warn("Backend API sync warning:", apiErr);
@@ -423,18 +481,199 @@ async function syncApplicationToSupabase(app) {
     // 2. Direct Browser Client Fallback
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
         try {
-            const { data, error } = await supabaseClient
+            const { data: existing } = await supabaseClient
                 .from('citizen_documents')
-                .insert([docPayload]);
-                
-            if (error) {
-                console.warn("Direct citizen_documents insert retry with upsert:", error.message);
-                await supabaseClient.from('citizen_documents').upsert(docPayload, { onConflict: 'application_id' });
+                .select('id')
+                .eq('application_id', app.id)
+                .maybeSingle();
+
+            if (existing && existing.id) {
+                await supabaseClient.from('citizen_documents').update(docPayload).eq('id', existing.id);
+            } else {
+                await supabaseClient.from('citizen_documents').insert([docPayload]);
             }
             console.log("✅ Application & Documents saved to Supabase citizen_documents table directly from client");
+            return { success: true, applicationId: app.id, syncedToLiveDb: true };
         } catch(clientErr) {
             console.error("Direct Supabase insert error:", clientErr);
         }
+    }
+
+    return { success: true, applicationId: app.id, syncedToLiveDb: false };
+}
+
+/**
+ * Fetch Live Applications from Supabase (Backend API or Supabase Client)
+ * Maps DB records into complete application objects and syncs to localStorage
+ */
+async function fetchLiveApplications(filterEmail = null) {
+    var cleanEmail = filterEmail ? filterEmail.trim().toLowerCase() : null;
+    var fetchedApps = [];
+
+    // 1. Fetch via Backend API
+    try {
+        var queryParam = cleanEmail ? '?email=' + encodeURIComponent(cleanEmail) : '';
+        var apiUrl = getApiBaseUrl() + '/api/citizen-applications' + queryParam;
+        var resp = await fetch(apiUrl);
+        if (resp.ok) {
+            var data = await resp.json();
+            if (data.success && Array.isArray(data.applications)) {
+                fetchedApps = data.applications;
+            }
+        }
+    } catch(e) {
+        console.warn("Backend fetch applications warning:", e);
+    }
+
+    // 2. Fallback to Supabase direct client if needed
+    if (fetchedApps.length === 0 && typeof supabaseClient !== 'undefined' && supabaseClient) {
+        try {
+            var q = supabaseClient.from('citizen_documents').select('*').order('created_at', { ascending: false });
+            if (cleanEmail) q = q.eq('email', cleanEmail);
+            var { data: dbData } = await q;
+            if (dbData && Array.isArray(dbData)) fetchedApps = dbData;
+        } catch(e) {}
+    }
+
+    if (fetchedApps.length === 0) return [];
+
+    // Convert Supabase DB rows into full application objects
+    var mappedApps = fetchedApps.map(function(row) {
+        var createdDate = row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}) : new Date().toLocaleDateString('en-IN');
+        
+        var rawAiReport = row.ai_report_path || '';
+        var meta = {};
+        if (rawAiReport && rawAiReport.indexOf('|||') !== -1) {
+            var parts = rawAiReport.split('|||');
+            rawAiReport = parts[0] || '';
+            try {
+                meta = JSON.parse(parts.slice(1).join('|||')) || {};
+            } catch(e) {}
+        }
+
+        var docs = (meta.documents && Array.isArray(meta.documents) && meta.documents.length > 0) ? meta.documents : [];
+        if (docs.length === 0) {
+            if (row.proof_identity_doc_path) docs.push({ id: 'proof_identity', name: 'Identity Proof', fileName: row.proof_identity_doc_path, status: 'Submitted' });
+            if (row.proof_address_doc_path) docs.push({ id: 'proof_address', name: 'Address Proof', fileName: row.proof_address_doc_path, status: 'Submitted' });
+            if (row.medical_certificate_doc_path) docs.push({ id: 'form_1a', name: 'Medical Certificate', fileName: row.medical_certificate_doc_path, status: 'Submitted' });
+        }
+
+        var vehicleClasses = (meta.vehicleClasses && meta.vehicleClasses.length > 0) ? meta.vehicleClasses : ['MCWG', 'LMV'];
+
+        return {
+            id: row.application_id || ('APP-' + (row.id || '').substring(0, 6)),
+            name: row.full_name || meta.fullName || 'Citizen Applicant',
+            type: row.application_type || "Learner's Licence",
+            status: row.application_status || 'Submitted',
+            date: createdDate,
+            citizenId: row.email,
+            mobile: row.mobile || meta.mobile || '',
+            address: row.address || meta.address || '',
+            aadhaarNumber: row.aadhaar_number || meta.aadhaarNumber || '',
+            dob: meta.dob || '2005-08-24',
+            gender: meta.gender || 'Male',
+            vehicleClasses: vehicleClasses,
+            applicantDetails: {
+                fullName: row.full_name || meta.fullName,
+                email: row.email,
+                mobile: row.mobile || meta.mobile,
+                dob: meta.dob || '2005-08-24',
+                gender: meta.gender || 'Male',
+                parentName: meta.parentName || '',
+                category: meta.category || 'Adult',
+                address: row.address || meta.address,
+                state: meta.state || 'Telangana',
+                district: meta.district || 'Warangal',
+                pin: meta.pin || '506005'
+            },
+            serviceDetails: {
+                rtoCode: row.rto_code || 'TG-03',
+                rtoOfficeName: meta.rtoOfficeName || ('RTA Office (' + (row.rto_code || 'TG-03') + ')'),
+                rtoAddress: meta.rtoAddress || '',
+                state: meta.state || 'Telangana',
+                district: meta.district || 'Warangal',
+                pin: meta.pin || '506005',
+                parentName: meta.parentName || '',
+                aadhaarNumber: row.aadhaar_number || meta.aadhaarNumber || '',
+                vehicleClasses: vehicleClasses,
+                vehicleClass: Array.isArray(vehicleClasses) ? vehicleClasses.join(', ') : 'MCWG, LMV',
+                applicantCategory: meta.category || 'Adult',
+                preferredTestDate: meta.preferredTestDate || createdDate,
+                preferredTestStartTime: meta.preferredTestStartTime || '10:00 AM',
+                preferredTestEndTime: meta.preferredTestEndTime || '11:00 AM',
+                allocatedTestDate: meta.allocatedTestDate || meta.preferredTestDate || createdDate,
+                allocatedTestStartTime: meta.allocatedTestStartTime || '10:00 AM',
+                allocatedTestEndTime: meta.allocatedTestEndTime || '11:00 AM',
+                appointmentStatus: 'Scheduled',
+                qualification: meta.qualification || '',
+                idMarks: meta.idMarks || '',
+                bloodGroup: meta.bloodGroup || '',
+                tempAddress: meta.tempAddress || '',
+                llNumber: meta.llNumber || '',
+                llIssueDate: meta.llIssueDate || '',
+                existingDlNumber: meta.existingDlNumber || '',
+                dlIssueDate: meta.dlIssueDate || '',
+                dlExpiryDate: meta.dlExpiryDate || '',
+                duplicateReason: meta.duplicateReason || '',
+                circumstances: meta.circumstances || '',
+                countriesToVisit: meta.countriesToVisit || '',
+                travelInfo: meta.travelInfo || '',
+                vehicleCategoriesRequested: meta.vehicleCategoriesRequested || ''
+            },
+            documents: docs,
+            testEvidence: (row.test_video_path || rawAiReport || meta.testEvidence) ? {
+                video: { fileName: row.test_video_path || (meta.testEvidence?.video?.fileName || '') },
+                aiReport: { fileName: rawAiReport || (meta.testEvidence?.aiReport?.fileName || '') }
+            } : null,
+            testResult: row.test_result || 'Pending Review',
+            assignedOfficerName: meta.assignedOfficerName || '',
+            assignedOfficerEmail: meta.assignedOfficerEmail || '',
+            assignedOfficerId: meta.assignedOfficerId || '',
+            reviewStage: meta.reviewStage || 'Document Verification',
+            remarks: meta.remarks || '',
+            isLiveDatabaseRecord: true
+        };
+    });
+
+    // Merge into localStorage drivesetu_applications safely
+    try {
+        var existingApps = [];
+        var rawLocal = localStorage.getItem('drivesetu_applications');
+        if (rawLocal) existingApps = JSON.parse(rawLocal) || [];
+
+        // Prepend new apps from live DB that aren't in localStorage, or update existing ones
+        mappedApps.forEach(function(liveApp) {
+            var idx = existingApps.findIndex(function(a) { return a.id === liveApp.id; });
+            if (idx !== -1) {
+                existingApps[idx] = Object.assign({}, existingApps[idx], liveApp);
+            } else {
+                existingApps.unshift(liveApp);
+            }
+        });
+
+        localStorage.setItem('drivesetu_applications', JSON.stringify(existingApps));
+    } catch(err) {}
+
+    return mappedApps;
+}
+
+/**
+ * Update Application Status directly in Supabase Database in Real-Time
+ */
+async function updateLiveApplicationStatus(applicationId, status, testResult = null) {
+    if (!applicationId) return;
+    try {
+        const apiUrl = getApiBaseUrl() + '/api/update-application-status';
+        const resp = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ applicationId, status, testResult })
+        });
+        if (resp.ok) {
+            console.log(`✅ Application ${applicationId} status updated live in Supabase to: ${status}`);
+        }
+    } catch(e) {
+        console.warn("Live status update warning:", e);
     }
 }
 
@@ -755,6 +994,10 @@ if (typeof window !== 'undefined') {
         checkIsAdmin,
         uploadUserFile,
         fetchUserFiles,
+        syncApplicationToSupabase,
+        fetchLiveApplications,
+        updateLiveApplicationStatus,
+        getApiBaseUrl,
         ADMIN_EMAILS
     };
 }
@@ -775,6 +1018,10 @@ if (typeof module !== 'undefined' && module.exports) {
         checkIsAdmin,
         uploadUserFile,
         fetchUserFiles,
+        syncApplicationToSupabase,
+        fetchLiveApplications,
+        updateLiveApplicationStatus,
+        getApiBaseUrl,
         ADMIN_EMAILS
     };
 }

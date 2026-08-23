@@ -179,12 +179,56 @@ app.post('/api/submit-citizen-application', async (req, res) => {
         });
 
         let videoPath = (evidence && evidence.video) ? (evidence.video.fileName || '') : '';
-        let aiReportPath = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
+        let rawAiReport = (evidence && evidence.aiReport) ? (evidence.aiReport.fileName || '') : '';
 
         const cleanMobile = (details.mobile || service.mobile || application.mobile || '').trim();
         const cleanAddress = (details.address || service.address || application.address || '').trim();
         const cleanAadhaar = (service.aadhaarNumber || details.aadhaarNumber || application.aadhaarNumber || '').trim();
         const cleanRto = (service.rtoCode || application.allocatedRtoCode || 'TG-03').trim();
+
+        // Build lossless metadata payload
+        const metaPayload = {
+            fullName: cleanName,
+            dob: details.dob || application.dob || '',
+            gender: details.gender || application.gender || '',
+            category: details.applicantCategory || service.applicantCategory || application.category || '',
+            parentName: details.parentName || service.parentName || application.parentName || '',
+            state: details.state || service.state || application.state || '',
+            district: details.district || service.district || application.district || '',
+            pin: details.pin || service.pin || application.pin || '',
+            vehicleClasses: service.vehicleClasses || application.vehicleClasses || [],
+            allocatedTestDate: service.allocatedTestDate || service.preferredTestDate || '',
+            allocatedTestStartTime: service.allocatedTestStartTime || service.preferredTestStartTime || '',
+            allocatedTestEndTime: service.allocatedTestEndTime || service.preferredTestEndTime || '',
+            preferredTestDate: service.preferredTestDate || '',
+            preferredTestStartTime: service.preferredTestStartTime || '',
+            preferredTestEndTime: service.preferredTestEndTime || '',
+            rtoOfficeName: service.rtoOfficeName || '',
+            rtoAddress: service.rtoAddress || '',
+            qualification: service.qualification || '',
+            idMarks: service.idMarks || '',
+            bloodGroup: service.bloodGroup || '',
+            tempAddress: service.tempAddress || '',
+            llNumber: service.llNumber || service.llNewNumber || application.learnerLicenceApplicationId || '',
+            llIssueDate: service.llIssueDate || '',
+            existingDlNumber: service.existingDlNumber || service.dlNumber || service.indianDlNumber || '',
+            dlIssueDate: service.dlIssueDate || '',
+            dlExpiryDate: service.dlExpiryDate || '',
+            duplicateReason: service.duplicateReason || '',
+            circumstances: service.circumstances || '',
+            countriesToVisit: service.countriesToVisit || '',
+            travelInfo: service.travelInfo || '',
+            vehicleCategoriesRequested: service.vehicleCategoriesRequested || '',
+            documents: docs,
+            testEvidence: evidence,
+            assignedOfficerName: application.assignedOfficerName || application.assignedOfficer || '',
+            assignedOfficerEmail: application.assignedOfficerEmail || '',
+            assignedOfficerId: application.assignedOfficerId || '',
+            reviewStage: application.reviewStage || '',
+            remarks: application.remarks || ''
+        };
+
+        const encodedAiReport = req.body.docPayload?.ai_report_path || ((rawAiReport || '') + '|||' + JSON.stringify(metaPayload));
 
         // 3. Upsert into public.citizen_info
         if (userId) {
@@ -202,7 +246,7 @@ app.post('/api/submit-citizen-application', async (req, res) => {
             }
         }
 
-        // 4. Insert into public.citizen_documents
+        // 4. Check if record exists, then Insert or Update in public.citizen_documents
         const docPayload = {
             user_id: userId,
             full_name: cleanName,
@@ -218,25 +262,138 @@ app.post('/api/submit-citizen-application', async (req, res) => {
             proof_address_doc_path: addressPath || null,
             medical_certificate_doc_path: medicalPath || null,
             test_video_path: videoPath || null,
-            ai_report_path: aiReportPath || null,
+            ai_report_path: encodedAiReport,
             test_result: application.status === 'Approved' ? 'PASS' : (application.status === 'Rejected' ? 'FAIL' : 'Pending Review'),
             updated_at: new Date().toISOString()
         };
 
-        const { data: dbData, error: dbError } = await supabaseAdmin
+        const { data: existingApp } = await supabaseAdmin
             .from('citizen_documents')
-            .insert([docPayload]);
+            .select('id')
+            .eq('application_id', application.id)
+            .maybeSingle();
 
-        if (dbError) {
-            console.error("Error inserting into citizen_documents:", dbError.message);
-            // Fallback: try upsert
-            await supabaseAdmin.from('citizen_documents').upsert(docPayload, { onConflict: 'application_id' });
+        let dbError = null;
+        if (existingApp && existingApp.id) {
+            const { error: updErr } = await supabaseAdmin
+                .from('citizen_documents')
+                .update(docPayload)
+                .eq('id', existingApp.id);
+            dbError = updErr;
+        } else {
+            const { error: insErr } = await supabaseAdmin
+                .from('citizen_documents')
+                .insert([docPayload]);
+            dbError = insErr;
         }
 
-        return res.json({ success: true, applicationId: application.id });
+        if (dbError) {
+            console.error("Error writing to citizen_documents:", dbError.message);
+        } else {
+            console.log(`✅ Application ${application.id} stored in Supabase citizen_documents for ${cleanEmail}`);
+        }
+
+        return res.json({ success: true, applicationId: application.id, record: docPayload });
     } catch (err) {
+        console.error("Submit citizen application error:", err);
         return res.status(500).json({ error: err.message || 'Application save failed.' });
     }
+});
+
+// Production API Route: Get Citizen Applications from Supabase
+app.get('/api/citizen-applications', async (req, res) => {
+    try {
+        if (!supabaseAdmin) {
+            return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
+        }
+        const email = req.query.email ? req.query.email.trim().toLowerCase() : null;
+        let query = supabaseAdmin.from('citizen_documents').select('*').order('created_at', { ascending: false });
+        if (email) {
+            query = query.eq('email', email);
+        }
+        const { data, error } = await query;
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+        return res.json({ success: true, applications: data || [] });
+    } catch(err) {
+        return res.status(500).json({ error: err.message || 'Failed to fetch citizen applications.' });
+    }
+});
+
+// Production API Route: Get All Applications from Supabase (Officers & Admins)
+app.get('/api/all-applications', async (req, res) => {
+    try {
+        if (!supabaseAdmin) {
+            return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
+        }
+        const { data, error } = await supabaseAdmin.from('citizen_documents').select('*').order('created_at', { ascending: false });
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+        return res.json({ success: true, applications: data || [] });
+    } catch(err) {
+        return res.status(500).json({ error: err.message || 'Failed to fetch all applications.' });
+    }
+});
+
+// Production API Route: Update Application Status
+app.post('/api/update-application-status', async (req, res) => {
+    try {
+        if (!supabaseAdmin) {
+            return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
+        }
+        const { applicationId, status, testResult } = req.body;
+        if (!applicationId) {
+            return res.status(400).json({ error: 'applicationId is required.' });
+        }
+        const updatePayload = {
+            updated_at: new Date().toISOString()
+        };
+        if (status) updatePayload.application_status = status;
+        if (testResult) updatePayload.test_result = testResult;
+
+        const { error } = await supabaseAdmin
+            .from('citizen_documents')
+            .update(updatePayload)
+            .eq('application_id', applicationId);
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+        return res.json({ success: true, message: 'Application updated successfully.' });
+    } catch(err) {
+        return res.status(500).json({ error: err.message || 'Failed to update application.' });
+    }
+});
+
+// Production API Route: Delete Citizen Application from Supabase
+app.delete('/api/citizen-application/:id', async (req, res) => {
+    try {
+        if (!supabaseAdmin) {
+            return res.status(500).json({ error: 'Supabase admin connection uninitialized.' });
+        }
+        const appId = req.params.id;
+        const { error } = await supabaseAdmin
+            .from('citizen_documents')
+            .delete()
+            .eq('application_id', appId);
+        if (error) {
+            return res.status(400).json({ error: error.message });
+        }
+        return res.json({ success: true, message: `Application ${appId} deleted successfully.` });
+    } catch(err) {
+        return res.status(500).json({ error: err.message || 'Failed to delete application.' });
+    }
+});
+
+// Production API Route: Backend Health Check
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'online',
+        service: 'DriveSetu Live Backend',
+        timestamp: new Date().toISOString(),
+        supabaseConnected: !!supabaseAdmin
+    });
 });
 
 // Production API Route: Register Official RTO Officers & Test Centre Operators into Supabase

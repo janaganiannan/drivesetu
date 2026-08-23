@@ -14,10 +14,7 @@ const supabase = createClient(SUPABASE_URL, SECRET_KEY, {
 });
 
 const ACCOUNTS_CONFIG = [
-    { email: 'admin@drivesetu.com', password: 'admin123', role: 'admin' },
-    { email: 'annan@drivesetu.com', password: 'annan123', role: 'user' },
-    { email: 'srivathsav@drivesetu.com', password: 'srivathsav123', role: 'user' },
-    { email: 'rahil@drivesetu.com', password: 'rahil123', role: 'user' }
+    { email: 'admin@drivesetu.com', password: 'admin123', role: 'admin' }
 ];
 
 async function automateDatabase() {
