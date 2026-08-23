@@ -785,7 +785,48 @@ function getStoredApplications() {
 
 function saveStoredApplications(apps) {
     applications = apps;
-    localStorage.setItem('drivesetu_applications', JSON.stringify(apps));
+    function stripBlobs(item) {
+        if (!item || typeof item !== 'object') return item;
+        var clone = Array.isArray(item) ? [] : {};
+        for (var k in item) {
+            if (Object.prototype.hasOwnProperty.call(item, k)) {
+                if (k === 'dataUrl' || k === 'videoDataUrl' || k === 'pdfDataUrl' || k === 'base64') {
+                    clone[k] = '';
+                } else if (typeof item[k] === 'object' && item[k] !== null) {
+                    clone[k] = stripBlobs(item[k]);
+                } else {
+                    clone[k] = item[k];
+                }
+            }
+        }
+        return clone;
+    }
+
+    try {
+        var cleanApps = stripBlobs(apps);
+        localStorage.setItem('drivesetu_applications', JSON.stringify(cleanApps));
+    } catch(e) {
+        try {
+            var minimal = apps.slice(0, 10).map(function(a) {
+                return {
+                    id: a.id,
+                    name: a.name,
+                    type: a.type,
+                    status: a.status,
+                    date: a.date,
+                    citizenId: a.citizenId,
+                    serviceDetails: a.serviceDetails || {},
+                    applicantDetails: a.applicantDetails || {},
+                    assignedOfficerEmail: a.assignedOfficerEmail,
+                    assignedOfficerName: a.assignedOfficerName,
+                    evaluator1: a.evaluator1
+                };
+            });
+            localStorage.setItem('drivesetu_applications', JSON.stringify(minimal));
+        } catch(e2) {
+            console.warn('LocalStorage save bypassed:', e2);
+        }
+    }
 }
 
 // ─── MODAL STATE ───

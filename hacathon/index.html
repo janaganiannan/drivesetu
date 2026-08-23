@@ -21,11 +21,11 @@
             try {
                 var rawApps = localStorage.getItem('drivesetu_applications');
                 var rawRev = localStorage.getItem('drivesetu_pending_reviews');
-                if ((rawApps && (rawApps.indexOf('APP-DEMO-001') !== -1 || rawApps.indexOf('LL-SUFYAN-001') !== -1 || rawApps.indexOf('Rahul') !== -1 || rawApps.indexOf('APP-102') !== -1)) ||
-                    (rawRev && (rawRev.indexOf('APP-DEMO-001') !== -1 || rawRev.indexOf('APP-102') !== -1))) {
+                if (rawApps && (rawApps.indexOf('data:image') !== -1 || rawApps.indexOf('data:application/pdf') !== -1 || rawApps.length > 200000)) {
                     localStorage.removeItem('drivesetu_applications');
+                }
+                if (rawRev && (rawRev.indexOf('data:image') !== -1 || rawRev.indexOf('data:application/pdf') !== -1 || rawRev.length > 200000)) {
                     localStorage.removeItem('drivesetu_pending_reviews');
-                    localStorage.removeItem('drivesetu_audit_log');
                 }
             } catch(e) {}
         })();
