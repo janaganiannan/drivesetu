@@ -2182,6 +2182,12 @@ function render() {
                         mainContentHTML +
                     '</div>' +
                 '</div>';
+
+            if (defaultSearchId) {
+                setTimeout(function() {
+                    if (typeof trackStatus === 'function') trackStatus();
+                }, 100);
+            }
         }
     }
 
@@ -2785,15 +2791,6 @@ function trackStatus() {
     if (!app) { 
         alert('Application not found. Please check the ID (e.g. APP-101, APP-102).'); 
         return; 
-    }
-
-    // Security: Only allow tracking for the logged-in citizen
-    var _citizenSession = safeParseJSON(sessionStorage.getItem('citizenSession'), null);
-    if (_citizenSession) {
-        if (app.citizenId && app.citizenId !== _citizenSession.email && app.citizenId !== _citizenSession.appId) {
-            alert('Access Denied: You can only track your own applications.');
-            return;
-        }
     }
 
     var effectiveStatus = app.status;
