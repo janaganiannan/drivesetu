@@ -1602,16 +1602,6 @@ function render() {
 
     // ── LOGIN & REGISTER PAGES (no sidebar layout) ──
     if (isCitizenLogin || isRTOLogin || isCitizenRegister) {
-        if ((isCitizenLogin || isCitizenRegister) && _cs) {
-            window.location.hash = 'citizen';
-            render();
-            return;
-        }
-        if (isRTOLogin && _rs) {
-            window.location.hash = 'rto';
-            render();
-            return;
-        }
 
         // ── CITIZEN REGISTRATION PAGE ──
         // ── REGISTRATION PAGE (CITIZEN & RTO OFFICER ONBOARDING) ──
