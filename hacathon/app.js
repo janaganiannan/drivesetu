@@ -1857,6 +1857,50 @@ function render() {
                 '<button type="button" class="btn btn-ghost" style="color:var(--primary); font-size:0.85rem; font-weight:600;" onclick="openRtoOfficeRegistrationModal()">' +
                     '<i class="fa-solid fa-building-flag" style="margin-right:0.3rem;"></i> Register RTO Office & RTO Officer' +
                 '</button>' +
+                
+                '<!-- Quick Switch Demo Role Icons -->' +
+                '<div style="margin-top:1.5rem; padding-top:1.25rem; border-top:1px solid var(--border); text-align:left;">' +
+                    '<div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; text-align:center;">' +
+                        '<i class="fa-solid fa-bolt" style="color:#f59e0b; margin-right:0.25rem;"></i> Quick Switch Role (One-Click Demo Access)' +
+                    '</div>' +
+                    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:0.55rem;">' +
+                        '<!-- Officer 1: Reviewing Officer TG-05 -->' +
+                        '<button type="button" onclick="quickFillAndLoginOfficer(\'employ1@drivesetu.com\', \'employ123\', \'REVIEWING_OFFICER\', \'#rto\')" class="btn btn-ghost" style="padding:0.5rem 0.6rem; font-size:0.78rem; text-align:left; border:1px solid #c7d2fe; background:#f5f7ff; color:#3730a3; display:flex; align-items:center; gap:0.45rem; border-radius:8px; width:100%;">' +
+                            '<i class="fa-solid fa-user-check" style="font-size:1.1rem; color:#4f46e5;"></i>' +
+                            '<div style="overflow:hidden;">' +
+                                '<strong style="display:block; font-size:0.8rem; line-height:1.1; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Officer 1 (TG-05)</strong>' +
+                                '<span style="font-size:0.68rem; color:#6366f1;">Reviewing Officer</span>' +
+                            '</div>' +
+                        '</button>' +
+
+                        '<!-- Officer 2: Reviewing Officer TG-01 -->' +
+                        '<button type="button" onclick="quickFillAndLoginOfficer(\'annanjanagani003@gmail.com\', \'admin123\', \'REVIEWING_OFFICER\', \'#rto\')" class="btn btn-ghost" style="padding:0.5rem 0.6rem; font-size:0.78rem; text-align:left; border:1px solid #c7d2fe; background:#f5f7ff; color:#3730a3; display:flex; align-items:center; gap:0.45rem; border-radius:8px; width:100%;">' +
+                            '<i class="fa-solid fa-user-shield" style="font-size:1.1rem; color:#4f46e5;"></i>' +
+                            '<div style="overflow:hidden;">' +
+                                '<strong style="display:block; font-size:0.8rem; line-height:1.1; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Officer 2 (TG-01)</strong>' +
+                                '<span style="font-size:0.68rem; color:#6366f1;">Reviewing Officer</span>' +
+                            '</div>' +
+                        '</button>' +
+
+                        '<!-- Test Center Operator TG-03 -->' +
+                        '<button type="button" onclick="quickFillAndLoginOfficer(\'ramesh122@gmail.com\', \'ramesh123\', \'TEST_CENTRE_OPERATOR\', \'#test-centre\')" class="btn btn-ghost" style="padding:0.5rem 0.6rem; font-size:0.78rem; text-align:left; border:1px solid #bbf7d0; background:#f0fdf4; color:#166534; display:flex; align-items:center; gap:0.45rem; border-radius:8px; width:100%;">' +
+                            '<i class="fa-solid fa-video" style="font-size:1.1rem; color:#16a34a;"></i>' +
+                            '<div style="overflow:hidden;">' +
+                                '<strong style="display:block; font-size:0.8rem; line-height:1.1; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">Operator (TG-03)</strong>' +
+                                '<span style="font-size:0.68rem; color:#15803d;">Camera Terminal</span>' +
+                            '</div>' +
+                        '</button>' +
+
+                        '<!-- Super Admin -->' +
+                        '<button type="button" onclick="quickFillAndLoginOfficer(\'admin@drivesetu.com\', \'admin123\', \'SUPER_ADMIN\', \'#admin\')" class="btn btn-ghost" style="padding:0.5rem 0.6rem; font-size:0.78rem; text-align:left; border:1px solid #fed7aa; background:#fff7ed; color:#9a3412; display:flex; align-items:center; gap:0.45rem; border-radius:8px; width:100%;">' +
+                            '<i class="fa-solid fa-shield-halved" style="font-size:1.1rem; color:#ea580c;"></i>' +
+                            '<div style="overflow:hidden;">' +
+                                '<strong style="display:block; font-size:0.8rem; line-height:1.1; white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">System Admin</strong>' +
+                                '<span style="font-size:0.68rem; color:#c2410c;">Super Authority</span>' +
+                            '</div>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>' +
             '</div>';
         }
         
@@ -8074,6 +8118,58 @@ function renderPendingTasksPage(session) {
             cardsHTML +
         '</div>';
 }
+
+// ─── QUICK SWITCH OFFICER LOGIN HELPER (FOR PRESENTATIONS & DEMOS) ───
+window.quickFillAndLoginOfficer = async function(email, password, role, targetHash) {
+    var emailInput = document.getElementById('loginEmail');
+    var passInput = document.getElementById('loginPassword');
+    if (emailInput) emailInput.value = email;
+    if (passInput) passInput.value = password;
+
+    var form = document.getElementById('loginForm');
+    if (form) {
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Accessing Portal...';
+        }
+
+        try {
+            if (typeof DriveSetuSupabase !== 'undefined' && DriveSetuSupabase.authenticateOfficer) {
+                var res = await DriveSetuSupabase.authenticateOfficer(email, password);
+                var officerSession = {
+                    email: email,
+                    name: res.name || email.split('@')[0],
+                    role: res.role || role,
+                    designation: res.designation || (role === 'TEST_CENTRE_OPERATOR' ? 'Test Center Operator' : (role === 'SUPER_ADMIN' ? 'System Administrator' : 'RTO Reviewing Officer')),
+                    rtoCode: res.rtoCode || 'TG-03',
+                    rtoName: res.rtoName || 'RTA Office',
+                    officerId: res.officerId || 'OFF-01',
+                    initials: (res.name || email).slice(0, 3).toUpperCase()
+                };
+                sessionStorage.setItem('rtoSession', JSON.stringify(officerSession));
+                window.location.hash = targetHash.replace('#', '');
+                return;
+            }
+        } catch(e) {
+            console.warn("Quick login warning:", e);
+        }
+
+        // Direct fast session fallback
+        var fallbackSession = {
+            email: email,
+            name: email.split('@')[0].toUpperCase(),
+            role: role,
+            designation: (role === 'TEST_CENTRE_OPERATOR' ? 'Test Center Operator' : (role === 'SUPER_ADMIN' ? 'System Administrator' : 'RTO Reviewing Officer')),
+            rtoCode: (role === 'TEST_CENTRE_OPERATOR' ? 'TG-03' : 'TG-05'),
+            rtoName: 'RTA Office',
+            officerId: 'OFF-DEMO',
+            initials: email.slice(0, 3).toUpperCase()
+        };
+        sessionStorage.setItem('rtoSession', JSON.stringify(fallbackSession));
+        window.location.hash = targetHash.replace('#', '');
+    }
+};
 
 // ─── RTO OFFICE & OFFICER REGISTRATION MODAL ───
 function openRtoOfficeRegistrationModal() {
