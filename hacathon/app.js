@@ -660,10 +660,100 @@ function getStoredApplications() {
         { officerId: 'OFF-TG01-01', email: 'annanjanagani003@gmail.com', name: 'Annan Janagani (Officer 2)', rtoCode: 'TG-01' }
     ];
 
+    // Seed the two active live applications if missing
+    var hasApp1 = apps.some(function(x) { return x.id === 'APP-737892'; });
+    var hasApp2 = apps.some(function(x) { return x.id === 'APP-393308'; });
+
+    if (!hasApp1) {
+        apps.unshift({
+            id: 'APP-737892',
+            name: 'citizen5',
+            type: "Learner's Licence",
+            status: 'Submitted',
+            date: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
+            citizenId: 'citizen5@gmail.com',
+            mobile: '9876543210',
+            address: 'Warangal Urban, Telangana',
+            applicantDetails: { fullName: 'citizen5', email: 'citizen5@gmail.com', mobile: '9876543210' },
+            serviceDetails: { rtoCode: 'TG-03', rtoOfficeName: 'RTA Warangal Urban (Timmapur)' },
+            assignedOfficerEmail: 'employ1@drivesetu.com',
+            assignedOfficerId: 'OFF-TG05-01',
+            assignedOfficerName: 'Employ 1 (Officer 1)',
+            assignedOfficer: 'Employ 1 (Officer 1)',
+            allocatedOfficerId: 'OFF-TG05-01',
+            allocatedOfficerEmail: 'employ1@drivesetu.com',
+            allocatedRtoCode: 'TG-05',
+            evaluator1: {
+                officerId: 'OFF-TG05-01',
+                email: 'employ1@drivesetu.com',
+                rtoCode: 'TG-05',
+                name: 'Employ 1 (Officer 1)',
+                decision: null,
+                reason: null
+            }
+        });
+    }
+
+    if (!hasApp2) {
+        apps.unshift({
+            id: 'APP-393308',
+            name: 'annan',
+            type: "Learner's Licence",
+            status: 'Submitted',
+            date: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }),
+            citizenId: 'annan@gmail.com',
+            mobile: '9494866066',
+            address: 'Hyderabad Central, Telangana',
+            applicantDetails: { fullName: 'annan', email: 'annan@gmail.com', mobile: '9494866066' },
+            serviceDetails: { rtoCode: 'TG-03', rtoOfficeName: 'RTA Warangal Urban (Timmapur)' },
+            assignedOfficerEmail: 'annanjanagani003@gmail.com',
+            assignedOfficerId: 'OFF-TG01-01',
+            assignedOfficerName: 'Annan Janagani (Officer 2)',
+            assignedOfficer: 'Annan Janagani (Officer 2)',
+            allocatedOfficerId: 'OFF-TG01-01',
+            allocatedOfficerEmail: 'annanjanagani003@gmail.com',
+            allocatedRtoCode: 'TG-01',
+            evaluator1: {
+                officerId: 'OFF-TG01-01',
+                email: 'annanjanagani003@gmail.com',
+                rtoCode: 'TG-01',
+                name: 'Annan Janagani (Officer 2)',
+                decision: null,
+                reason: null
+            }
+        });
+    }
+
     // Ensure all applications are cleanly allocated to Officer 1 or Officer 2
     for (var i = 0; i < apps.length; i++) {
         var a = apps[i];
-        if (!a.assignedOfficerEmail || (a.assignedOfficerEmail !== officers[0].email && a.assignedOfficerEmail !== officers[1].email)) {
+        if (a.id === 'APP-737892') {
+            a.assignedOfficerEmail = 'employ1@drivesetu.com';
+            a.assignedOfficerId = 'OFF-TG05-01';
+            a.assignedOfficerName = 'Employ 1 (Officer 1)';
+            a.assignedOfficer = 'Employ 1 (Officer 1)';
+            a.allocatedOfficerId = 'OFF-TG05-01';
+            a.allocatedOfficerEmail = 'employ1@drivesetu.com';
+            a.allocatedRtoCode = 'TG-05';
+            if (!a.evaluator1) a.evaluator1 = {};
+            a.evaluator1.officerId = 'OFF-TG05-01';
+            a.evaluator1.email = 'employ1@drivesetu.com';
+            a.evaluator1.name = 'Employ 1 (Officer 1)';
+            a.evaluator1.rtoCode = 'TG-05';
+        } else if (a.id === 'APP-393308') {
+            a.assignedOfficerEmail = 'annanjanagani003@gmail.com';
+            a.assignedOfficerId = 'OFF-TG01-01';
+            a.assignedOfficerName = 'Annan Janagani (Officer 2)';
+            a.assignedOfficer = 'Annan Janagani (Officer 2)';
+            a.allocatedOfficerId = 'OFF-TG01-01';
+            a.allocatedOfficerEmail = 'annanjanagani003@gmail.com';
+            a.allocatedRtoCode = 'TG-01';
+            if (!a.evaluator1) a.evaluator1 = {};
+            a.evaluator1.officerId = 'OFF-TG01-01';
+            a.evaluator1.email = 'annanjanagani003@gmail.com';
+            a.evaluator1.name = 'Annan Janagani (Officer 2)';
+            a.evaluator1.rtoCode = 'TG-01';
+        } else if (!a.assignedOfficerEmail || (a.assignedOfficerEmail !== officers[0].email && a.assignedOfficerEmail !== officers[1].email)) {
             var assigned = officers[i % 2];
             a.assignedOfficerEmail = assigned.email;
             a.assignedOfficerId = assigned.officerId;
