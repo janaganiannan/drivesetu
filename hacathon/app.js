@@ -1824,8 +1824,8 @@ function render() {
         var loginIcon = isCitizenLogin ? 'ph-user' : 'ph-shield-check';
         var loginTarget = isCitizenLogin ? 'citizen' : 'rto';
         var loginColor = isCitizenLogin ? 'var(--primary)' : 'var(--primary-dark)';
-        var defaultEmail = isCitizenLogin ? '' : 'admin@drivesetu.com';
-        var defaultPass = isCitizenLogin ? '' : 'admin123';
+        var defaultEmail = '';
+        var defaultPass = '';
 
         var loginHTML = '';
         loginHTML += '<div class="login-page">';
@@ -1838,10 +1838,10 @@ function render() {
         loginHTML += '<div class="login-card">';
         loginHTML += '<div class="login-avatar" style="background:' + loginColor + ';"><i class="ph ' + loginIcon + '" style="font-size:1.8rem; color:#fff;"></i></div>';
         loginHTML += '<h2 class="login-title">' + loginType + ' Login</h2>';
-        loginHTML += '<p class="login-subtitle">Enter your credentials to access the ' + loginType + ' Portal</p>';
+        loginHTML += '<p class="login-subtitle">Enter your individual credentials to access the ' + loginType + ' Portal</p>';
         loginHTML += '<form id="loginForm">';
-        loginHTML += '<div class="form-group"><label>Email Address</label><input type="email" id="loginEmail" value="' + defaultEmail + '" placeholder="Enter your email" required></div>';
-        loginHTML += '<div class="form-group"><label>Password</label><input type="password" id="loginPassword" value="' + defaultPass + '" placeholder="Enter your password" required></div>';
+        loginHTML += '<div class="form-group"><label>' + (isCitizenLogin ? 'Citizen Email Address' : 'Officer Official Email (Username)') + '</label><input type="email" id="loginEmail" value="" placeholder="' + (isCitizenLogin ? 'e.g. name@gmail.com' : 'e.g. ramesh122@gmail.com or operator.tg03@drivesetu.com') + '" required></div>';
+        loginHTML += '<div class="form-group"><label>Password</label><input type="password" id="loginPassword" value="" placeholder="Enter your password" required></div>';
         loginHTML += '<div class="login-options">';
         loginHTML += '<label class="remember-me"><input type="checkbox" checked> Remember me</label>';
         loginHTML += '<a href="javascript:void(0)" class="forgot-link" id="forgotBtn">Forgot password?</a>';
