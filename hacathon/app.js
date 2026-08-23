@@ -1471,8 +1471,21 @@ function render() {
         { icon: 'fa-solid fa-list-check', label: 'Pending Tasks', hash: '#pending-tasks', active: isPendingTasks, badge: _pendingTaskCount || null }
     ];
 
+    var isTestCentreOp = _rs && (_rs.role === 'TEST_CENTRE_OPERATOR' || (_rs.designation && _rs.designation.toUpperCase().indexOf('OPERATOR') !== -1) || (_rs.designation && _rs.designation.toUpperCase().indexOf('TEST_CENTRE') !== -1));
     var rtoNavItems = [];
-    if (_rs && _rs.role === 'ADMIN') {
+    if (isTestCentreOp) {
+        var opRto = (_rs && _rs.rtoCode) ? _rs.rtoCode : 'TG-03';
+        var myQueueCount = storedApps.filter(function(a) {
+            if (a.type !== 'Permanent Licence' && a.type !== 'Permanent Driving Licence') return false;
+            var appRto = (a.serviceDetails && a.serviceDetails.rtoCode) ? a.serviceDetails.rtoCode : 'TG-03';
+            return appRto === opRto;
+        }).length;
+
+        rtoNavItems = [
+            { icon: 'fa-solid fa-video', label: 'Test Camera Terminal', hash: '#test-centre', active: isTestCentre || isHome },
+            { icon: 'fa-solid fa-list-check', label: 'Candidate Queue (' + opRto + ')', hash: '#test-centre', active: isTestCentre, badge: myQueueCount || null }
+        ];
+    } else if (_rs && (_rs.role === 'ADMIN' || _rs.role === 'SUPER_ADMIN')) {
         rtoNavItems = [
             { icon: 'fa-solid fa-gauge', label: 'System Monitoring', hash: '#home', active: isHome },
             { icon: 'fa-solid fa-chart-pie', label: 'Application Statistics', hash: '#rto-reports', active: isRTOReports },
@@ -2406,7 +2419,9 @@ function render() {
     }
 
     else if (isRTO) {
-        if (!_rs || (_rs.role !== 'REVIEWING_OFFICER' && _rs.role !== 'ADMIN')) {
+        if (_rs && (_rs.role === 'TEST_CENTRE_OPERATOR' || (_rs.designation && _rs.designation.toUpperCase().indexOf('OPERATOR') !== -1))) {
+            pageContent = renderTestCentrePage();
+        } else if (!_rs || (_rs.role !== 'REVIEWING_OFFICER' && _rs.role !== 'ADMIN' && _rs.role !== 'SUPER_ADMIN')) {
             pageContent = '<div class="animate-in" style="max-width:500px; margin:3rem auto; text-align:center;">' +
                 '<div class="card" style="padding:2.5rem 2rem;">' +
                     '<div style="width:70px; height:70px; border-radius:50%; background:#fff0f0; color:#c53030; font-size:2rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem auto;"><i class="fa-solid fa-user-shield"></i></div>' +
