@@ -918,18 +918,29 @@ async function rejectRTORegistrationRequest(requestId, email) {
 }
 
 async function registerRTOOffice(rtoOfficeData) {
+    // 1. Primary Backend API Call
     try {
-        const resp = await fetch('/api/register-rto-office', {
+        const apiUrl = (getApiBaseUrl() || '') + '/api/register-rto-office';
+        const resp = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rtoOfficeData)
         });
-        if (resp.ok) {
-            const result = await resp.json();
-            if (result.success) return result;
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            console.log("✅ RTO Office & Officer registered in Supabase via backend API:", result);
+            return result;
         }
-    } catch(err) {}
+        if (result.error && !result.error.includes('uninitialized')) {
+            throw new Error(result.error);
+        }
+    } catch(err) {
+        if (err.message && !err.message.includes('Failed to fetch') && !err.message.includes('uninitialized')) {
+            throw err;
+        }
+    }
 
+    // 2. Render Cloud Backend API Fallback
     try {
         const cloudUrl = 'https://drivesetu.onrender.com/api/register-rto-office';
         const resp = await fetch(cloudUrl, {
@@ -937,15 +948,18 @@ async function registerRTOOffice(rtoOfficeData) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(rtoOfficeData)
         });
-        if (resp.ok) {
-            const result = await resp.json();
-            if (result.success) return result;
+        const result = await resp.json();
+        if (resp.ok && result.success) {
+            console.log("✅ RTO Office & Officer registered in Supabase via Render Cloud API:", result);
+            return result;
         }
-    } catch(err) {}
-
-    // Direct Supabase Client Fallback
-    if (!supabaseClient) {
-        return { success: true, message: 'Registered locally.' };
+        if (result.error) {
+            throw new Error(result.error);
+        }
+    } catch(err) {
+        if (err.message && !err.message.includes('Failed to fetch')) {
+            throw err;
+        }
     }
 
     const cleanEmail = (rtoOfficeData.officialEmail || '').trim().toLowerCase();

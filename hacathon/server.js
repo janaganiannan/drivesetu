@@ -531,14 +531,14 @@ app.post('/api/register-rto-office', async (req, res) => {
             await supabaseAdmin.auth.admin.updateUserById(userId, {
                 password: password,
                 email_confirm: true,
-                user_metadata: { full_name: cleanOfficerName, role: assignedRole, rto_code: code }
+                user_metadata: { full_name: cleanOfficerName, role: assignedRole, designation: designation, rto_code: code }
             });
         } else {
             const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
                 email: cleanEmail,
                 password: password,
                 email_confirm: true,
-                user_metadata: { full_name: cleanOfficerName, role: assignedRole, rto_code: code }
+                user_metadata: { full_name: cleanOfficerName, role: assignedRole, designation: designation, rto_code: code }
             });
 
             if (createError) {
@@ -553,11 +553,32 @@ app.post('/api/register-rto-office', async (req, res) => {
                 id: userId,
                 email: cleanEmail,
                 role: assignedRole,
-                account_type: assignedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Operator' : 'RTO Officer',
+                account_type: assignedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Operator' : (assignedRole === 'ADMIN' ? 'System Administrator' : 'RTO Reviewing Officer'),
                 full_name: cleanOfficerName,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'id' });
+
+            await supabaseAdmin.from('profiles').update({
+                role: assignedRole,
+                full_name: cleanOfficerName,
+                updated_at: new Date().toISOString()
+            }).eq('id', userId);
         } catch (pErr) {}
+
+        // 4. Upsert in rto_officers table if exists
+        try {
+            await supabaseAdmin.from('rto_officers').upsert({
+                id: userId,
+                email: cleanEmail,
+                role: assignedRole,
+                account_type: 'RTO Officer',
+                full_name: cleanOfficerName,
+                rto_code: code,
+                rto_name: officeName,
+                officer_id: offId,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+        } catch (roErr) {}
 
         return res.json({
             success: true,
