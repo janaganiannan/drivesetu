@@ -6612,12 +6612,12 @@ function renderSubmissionSuccess(app, nextStep) {
     }).join('');
 
     var successHeading = "Your application is successful";
-    var successMsg = "Your digital application has been logged into the DriveSetu RTO database.";
+    var successMsg = '<div style="background:#e8f7f1; color:#0d6832; border:1px solid #c2ebd6; padding:0.6rem 1rem; border-radius:8px; font-size:0.85rem; font-weight:600; margin:0.75rem auto 1rem auto; max-width:440px; display:flex; align-items:center; justify-content:center; gap:0.5rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Live Synced to Supabase (citizen_documents)</div>Your digital application has been logged into the DriveSetu RTO database.';
     var categoriesHTML = '';
     
     if (app.type === "Learner's Licence") {
         successHeading = "Your application is successful";
-        successMsg = "Your digital application has been logged into the DriveSetu RTO database for document verification.";
+        successMsg = '<div style="background:#e8f7f1; color:#0d6832; border:1px solid #c2ebd6; padding:0.6rem 1rem; border-radius:8px; font-size:0.85rem; font-weight:600; margin:0.75rem auto 1rem auto; max-width:440px; display:flex; align-items:center; justify-content:center; gap:0.5rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Live Synced to Supabase (citizen_documents)</div>Your digital application has been logged into the DriveSetu RTO database for document verification.';
         if (app.serviceDetails && app.serviceDetails.vehicleClasses) {
             categoriesHTML = 
                 '<div class="flex-between" style="padding:0.4rem 0; border-bottom:1px solid var(--border); font-size:0.88rem;">' +
