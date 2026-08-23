@@ -5624,6 +5624,7 @@ function renderPermanentPage(session) {
     var initialLlNum = isPrefilled ? appData.id : '';
     var initialLlDate = isPrefilled ? (appData.date || '2026-07-10') : '';
     var initialRtoCode = isPrefilled ? (sd.rtoCode || 'TG-09') : 'TG-09';
+    var initialAadhaar = isPrefilled ? (sd.aadhaarNumber || ad.aadhaarNumber || appData.aadhaarNumber || '987654321012') : '987654321012';
     var initialQualification = isPrefilled ? (ad.qualification || 'Graduate') : 'Graduate';
     var initialIdMarks = isPrefilled ? (ad.idMarks || 'Mole on right wrist') : '';
     var initialBloodGroup = isPrefilled ? (ad.bloodGroup || 'O+') : 'O+';
@@ -5678,6 +5679,7 @@ function renderPermanentPage(session) {
                         '<div class="form-group"><label>Email Address</label><input type="email" id="applicantEmail" value="' + initialEmail + '" required></div>' +
                     '</div>' +
                     '<div class="grid-2">' +
+                        '<div class="form-group"><label>Aadhaar Card Number (UIDAI)</label><input type="text" id="aadhaarNumber" value="' + initialAadhaar + '" placeholder="12-digit Aadhaar number" maxlength="12"></div>' +
                         '<div class="form-group"><label>Applicant Category</label>' +
                             '<select id="applicantCategory" onchange="renderDocumentChecklistTable(\'Permanent Licence\');" required>' +
                                 '<option value="Adult">General (Adult)</option>' +
@@ -5685,6 +5687,7 @@ function renderPermanentPage(session) {
                                 '<option value="Senior">Senior Citizen</option>' +
                             '</select>' +
                         '</div>' +
+                    '</div>' +
                         '<div class="form-group"><label>Educational Qualification</label>' +
                             '<select id="applicantQualification">' +
                                 '<option value="Graduate">Graduate / Higher</option>' +
@@ -6203,11 +6206,13 @@ async function submitServiceForm(licenceTypeKey) {
             var district = districtEl ? districtEl.value.trim() : '';
             var pin = pinEl ? pinEl.value.trim().replace(/[^0-9]/g, '') : '';
             var aadhaarNum = aadhaarEl ? aadhaarEl.value.trim().replace(/[^0-9]/g, '') : '';
+            if (!aadhaarNum || aadhaarNum.length !== 12) {
+                aadhaarNum = '987654321012';
+            }
 
-            if (!state) { alert('Please enter your State.'); if (stateEl) stateEl.focus(); return; }
-            if (!district) { alert('Please select your District.'); if (districtEl) districtEl.focus(); return; }
-            if (!pin || pin.length !== 6) { alert('Please enter a valid 6-digit PIN Code.'); if (pinEl) pinEl.focus(); return; }
-            if (!aadhaarNum || aadhaarNum.length !== 12) { alert('Please enter a valid 12-digit Aadhaar Number.'); if (aadhaarEl) aadhaarEl.focus(); return; }
+            if (!state) { state = 'Telangana'; }
+            if (!district) { district = 'Hyderabad'; }
+            if (!pin || pin.length !== 6) { pin = '500034'; }
             
             var checkboxes = document.getElementsByName('vehicleCategory');
             var selectedCats = [];
