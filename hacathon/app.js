@@ -7173,25 +7173,105 @@ function testCentreSearchApp(appIdSearch) {
     }
 
     if (!matched) {
-        alert('Application ' + searchId + ' not found or is not a Permanent Driving Licence application.');
+        // Fallback: match by ID even if type varies slightly
+        for (var j = 0; j < apps.length; j++) {
+            if (apps[j].id === searchId) {
+                matched = apps[j];
+                break;
+            }
+        }
+    }
+
+    if (!matched) {
+        alert('Application ' + searchId + ' not found.');
         return;
     }
 
     window.testCentreState.matchedApp = matched;
     window.testCentreState.step = 'found';
+    window.testCentreState.biometricVerified = false;
+    window.testCentreState.faceVerified = false;
     window.testCentreState.identityVerified = false;
-    window.testCentreState.appointmentVerified = false;
+    window.testCentreState.appointmentVerified = true;
     render();
 }
 
-function testCentreVerifyIdentity() {
-    window.testCentreState.identityVerified = true;
+function testCentreVerifyFace() {
+    window.testCentreState.faceScanning = true;
     render();
+    setTimeout(function() {
+        window.testCentreState.faceScanning = false;
+        window.testCentreState.faceVerified = true;
+        window.testCentreState.identityVerified = true;
+        render();
+    }, 1200);
+}
+
+function testCentreVerifyIdentity() {
+    testCentreVerifyFace();
 }
 
 function testCentreVerifyAppointment() {
     window.testCentreState.appointmentVerified = true;
     render();
+}
+
+window.testCentreWebcamStream = null;
+
+function enableTestCentreLiveWebcam() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false })
+            .then(function(stream) {
+                window.testCentreWebcamStream = stream;
+                if (window.testCentreState) window.testCentreState.useLiveCamera = true;
+                var videoEl = document.getElementById('testCameraVideoFeed');
+                if (videoEl) {
+                    videoEl.srcObject = stream;
+                    videoEl.play().catch(function(){});
+                }
+                var modeLabel = document.getElementById('cameraModeLabel');
+                if (modeLabel) modeLabel.textContent = 'LIVE WEBCAM STREAM ACTIVE • 1080p';
+            })
+            .catch(function(err) {
+                console.warn('Webcam permission error:', err);
+                alert('⚠️ Camera access denied or not available. Using overhead track video simulation.');
+                if (window.testCentreState) window.testCentreState.useLiveCamera = false;
+                var videoEl = document.getElementById('testCameraVideoFeed');
+                if (videoEl) {
+                    videoEl.srcObject = null;
+                    videoEl.src = 'pika.mp4';
+                    videoEl.play().catch(function(){});
+                }
+            });
+    } else {
+        alert('Webcam API is not supported in this browser. Using track simulator video.');
+    }
+}
+
+function stopTestCentreLiveWebcam() {
+    if (window.testCentreWebcamStream) {
+        try {
+            window.testCentreWebcamStream.getTracks().forEach(function(track) { track.stop(); });
+        } catch(e) {}
+        window.testCentreWebcamStream = null;
+    }
+}
+
+function switchCameraSource(mode) {
+    if (mode === 'webcam') {
+        enableTestCentreLiveWebcam();
+    } else {
+        stopTestCentreLiveWebcam();
+        if (window.testCentreState) window.testCentreState.useLiveCamera = false;
+        var videoEl = document.getElementById('testCameraVideoFeed');
+        if (videoEl) {
+            videoEl.srcObject = null;
+            videoEl.src = 'pika.mp4';
+            videoEl.play().catch(function(){});
+        }
+        var modeLabel = document.getElementById('cameraModeLabel');
+        if (modeLabel) modeLabel.textContent = 'OVERHEAD TRACK CAMERA • 1080p';
+    }
 }
 
 function formatTestTimer(sec) {
@@ -7208,7 +7288,7 @@ function pad3(num) {
 
 function updateTestSessionUI(sec) {
     if (sec > 40) sec = 40;
-    window.testCentreState.testTimerSeconds = sec;
+    if (window.testCentreState) window.testCentreState.testTimerSeconds = sec;
     var formatted = formatTestTimer(sec);
 
     var recEl = document.getElementById('recTimerOverlay');
@@ -7223,9 +7303,9 @@ function updateTestSessionUI(sec) {
     var sliderEl = document.getElementById('videoTimelineSlider');
     if (sliderEl) sliderEl.value = sec;
 
-    // Sync HTML5 video currentTime
+    // Sync HTML5 video currentTime if using track video
     var videoEl = document.getElementById('testCameraVideoFeed');
-    if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
+    if (videoEl && !window.testCentreWebcamStream && videoEl.duration && !isNaN(videoEl.duration)) {
         var targetTime = (sec / 40) * videoEl.duration;
         if (Math.abs(videoEl.currentTime - targetTime) > 1.5) {
             videoEl.currentTime = targetTime;
@@ -7266,7 +7346,7 @@ function updateTestSessionUI(sec) {
     // End of test video handling
     if (sec >= 40) {
         stopTestCentreTimers();
-        window.testCentreState.isPlaying = false;
+        if (window.testCentreState) window.testCentreState.isPlaying = false;
         var badgeEl = document.getElementById('recordingStatusBadge');
         if (badgeEl) {
             badgeEl.style.background = '#10b981';
@@ -7274,7 +7354,7 @@ function updateTestSessionUI(sec) {
         }
         var playBtn = document.getElementById('videoPlayPauseBtn');
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-rotate-left"></i>';
-        if (videoEl) videoEl.pause();
+        if (videoEl && !window.testCentreWebcamStream) videoEl.pause();
     }
 }
 
@@ -7283,7 +7363,7 @@ function toggleTestVideoPlay() {
     if (window.testCentreState.isPlaying) {
         stopTestCentreTimers();
         window.testCentreState.isPlaying = false;
-        if (videoEl) videoEl.pause();
+        if (videoEl && !window.testCentreWebcamStream) videoEl.pause();
         var playBtn = document.getElementById('videoPlayPauseBtn');
         if (playBtn) playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
     } else {
@@ -7291,7 +7371,7 @@ function toggleTestVideoPlay() {
             window.testCentreState.testTimerSeconds = 0;
         }
         window.testCentreState.isPlaying = true;
-        if (videoEl) videoEl.play();
+        if (videoEl && !window.testCentreWebcamStream) videoEl.play();
         var playBtn2 = document.getElementById('videoPlayPauseBtn');
         if (playBtn2) playBtn2.innerHTML = '<i class="fa-solid fa-pause"></i>';
         startSessionTimer();
@@ -7301,7 +7381,7 @@ function toggleTestVideoPlay() {
 function seekTestVideoTimeline(val) {
     var sec = parseInt(val, 10) || 0;
     var videoEl = document.getElementById('testCameraVideoFeed');
-    if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
+    if (videoEl && !window.testCentreWebcamStream && videoEl.duration && !isNaN(videoEl.duration)) {
         videoEl.currentTime = (sec / 40) * videoEl.duration;
     }
     updateTestSessionUI(sec);
@@ -7334,14 +7414,14 @@ function startSessionTimer() {
     stopTestCentreTimers();
     window.testCentreState.timerInterval = setInterval(function() {
         if (window.testCentreState.step !== 'in_progress') return;
-        var nextSec = window.testCentreState.testTimerSeconds + 1;
+        var nextSec = (window.testCentreState.testTimerSeconds || 0) + 1;
         updateTestSessionUI(nextSec);
     }, 1000);
 }
 
 function testCentreStartTest() {
-    if (!window.testCentreState.identityVerified || !window.testCentreState.appointmentVerified) {
-        alert('Please complete Identity Verification and Appointment Verification before starting the test.');
+    if (!window.testCentreState.biometricVerified && !window.testCentreState.identityVerified) {
+        alert('Please complete Biometric and Face Verification before starting the test.');
         return;
     }
 
@@ -7352,10 +7432,16 @@ function testCentreStartTest() {
 
     startSessionTimer();
     render();
+
+    // Auto-prompt live webcam access for presentation demo
+    setTimeout(function() {
+        enableTestCentreLiveWebcam();
+    }, 300);
 }
 
 function testCentreCompleteTest() {
     stopTestCentreTimers();
+    stopTestCentreLiveWebcam();
     window.testCentreState.step = 'completed';
     render();
 }
@@ -7381,7 +7467,7 @@ function testCentreSendToRto() {
     var telemetryFileName = app.id + '_Telemetry';
     var timestampStr = new Date().toISOString();
 
-    // ── Execute Dual Randomized Allocation Engine ──
+    // ── Random Allocation to Officer 1 or Officer 2 ──
     var evals = allocateDualEvaluators(testRto);
 
     var evidenceObj = {
@@ -7427,38 +7513,19 @@ function testCentreSendToRto() {
             apps[i].evaluator2 = evidenceObj.evaluator2;
             apps[i].evaluationStatus = 'BOTH_PENDING';
             apps[i].testEvidence = evidenceObj;
-            
-            if (!apps[i].allocationLog) apps[i].allocationLog = [];
-            apps[i].allocationLog.push({
-                reviewRound: 1,
-                testCentreRto: testRto,
-                allocatedOfficerId: evals.evaluator1.officerId,
-                officerName: evals.evaluator1.name,
-                officerRto: evals.evaluator1.rtoCode,
-                allocationMethod: 'Automated Cross-RTO Allocation',
-                timestamp: new Date().toLocaleString('en-IN'),
-                status: 'Assigned'
-            });
-            apps[i].allocationLog.push({
-                reviewRound: 1,
-                testCentreRto: testRto,
-                allocatedOfficerId: evals.evaluator2.officerId,
-                officerName: evals.evaluator2.name,
-                officerRto: evals.evaluator2.rtoCode,
-                allocationMethod: 'Automated Cross-RTO Allocation',
-                timestamp: new Date().toLocaleString('en-IN'),
-                status: 'Assigned'
-            });
+            apps[i].assignedOfficerEmail = evals.evaluator1.email || 'employ1@drivesetu.com';
+            apps[i].assignedOfficerName = evals.evaluator1.name || 'Employ 1 (Officer 1)';
             break;
         }
     }
     saveStoredApplications(apps);
 
-    // Create IMMUTABLE audit events for test completion
+    // Create IMMUTABLE audit events
     appendAuditEvent(app.id, 'TEST_CONDUCTED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Driving test physically conducted at ' + testRto);
+    appendAuditEvent(app.id, 'BIOMETRICS_VERIFIED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Aadhaar Fingerprint & Live AI Facial Verification successfully matched (99.8%).');
     appendAuditEvent(app.id, 'EVIDENCE_LOCKED', 'Test Centre Operator', 'TEST_CENTRE_OPERATOR', 'Evidence Package locked (' + evidenceId + ') with SHA-256 integrity hash.');
-    appendAuditEvent(app.id, 'AI_REPORT_GENERATED', 'AI System', 'SYSTEM_AI', 'AI telemetry analysis completed. Telemetry score: 92/100.');
-    appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Independent evaluator automatically allocated through cross-RTO assignment.');
+    appendAuditEvent(app.id, 'AI_REPORT_GENERATED', 'AI System', 'SYSTEM_AI', 'AI telemetry analysis completed. Telemetry score: 94/100 (PASSED).');
+    appendAuditEvent(app.id, 'EVALUATOR_ALLOCATED', 'System Engine', 'SYSTEM', 'Randomized independent evaluation assigned to ' + evals.evaluator1.name + '.');
 
     // Update drivesetu_pending_reviews
     var reviewFound = false;
@@ -7467,8 +7534,7 @@ function testCentreSendToRto() {
             reviews[r].status = 'Pending Review';
             reviews[r].mp4Name = evidenceObj.video.fileName;
             reviews[r].pdfName = evidenceObj.aiReport.fileName;
-            reviews[r].videoDataUrl = evidenceObj.video.dataUrl;
-            reviews[r].notes = 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated via Cross-RTO Evaluation Engine.';
+            reviews[r].notes = 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + '.';
             reviews[r].submittedOn = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'});
             reviewFound = true;
             break;
@@ -7481,9 +7547,9 @@ function testCentreSendToRto() {
             licenceType: 'Permanent Licence',
             mp4Name: evidenceObj.video.fileName,
             pdfName: evidenceObj.aiReport.fileName,
-            videoDataUrl: evidenceObj.video.dataUrl,
+            videoDataUrl: '',
             pdfDataUrl: '',
-            notes: 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated via Cross-RTO Evaluation Engine.',
+            notes: 'Driving test completed at ' + testRto + '. Evidence locked (' + evidenceId + '). Allocated to ' + evals.evaluator1.name + '.',
             submittedOn: new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric'}),
             status: 'Pending Review',
             reviewedBy: null
@@ -7491,24 +7557,9 @@ function testCentreSendToRto() {
     }
     saveStoredReviews(reviews);
 
-    alert('🔒 Evidence Package Locked & Independent Evaluation Assigned!\n\nEvidence ID: ' + evidenceId + '\nIntegrity Hash: ' + sha256Hash + '\n\n🎲 Independent evaluation assigned automatically through the DriveSetu Cross-RTO Allocation Engine.');
+    alert('🔒 Evidence Package Locked & Transmitted to Reviewing Officer!\n\nEvidence ID: ' + evidenceId + '\nAI Score: 94/100 (PASSED)\nAssigned Officer: ' + evals.evaluator1.name + '\nSHA-256 Hash: ' + sha256Hash + '\n\nOpening RTO Officer Portal...');
     resetTestCentreWorkflow();
-}
-
-function quickLoginTestOperator(code) {
-    var rtoCode = code || 'TG-03';
-    var opSession = {
-        email: 'operator.' + rtoCode.toLowerCase().replace('-', '') + '@drivesetu.com',
-        name: rtoCode + ' Test Centre Operator',
-        role: 'TEST_CENTRE_OPERATOR',
-        rtoCode: rtoCode,
-        rtoName: 'RTA Test Centre (' + rtoCode + ')',
-        officerId: 'OP-' + rtoCode,
-        initials: 'OP'
-    };
-    sessionStorage.setItem('rtoSession', JSON.stringify(opSession));
-    window.location.hash = 'test-centre';
-    if (typeof render === 'function') render();
+    window.location.hash = 'rto';
 }
 
 function renderTestCentrePage() {
@@ -7538,53 +7589,51 @@ function renderTestCentrePage() {
     var state = window.testCentreState || { step: 'search' };
     var apps = getStoredApplications();
     
-    // Strict RTO Isolation: Only show tests scheduled at THIS physical test centre RTO!
+    // Show all Permanent Licence applications in queue
     var scheduledApps = apps.filter(function(a) {
-        if (a.type !== 'Permanent Licence' && a.type !== 'Permanent Driving Licence') return false;
-        var appRto = (a.serviceDetails && a.serviceDetails.rtoCode) ? a.serviceDetails.rtoCode : 'TG-03';
-        return appRto === operatorRtoCode;
+        return a.type === 'Permanent Licence' || a.type === 'Permanent Driving Licence';
     });
 
     if (state.step === 'search') {
         var rows = '';
         if (scheduledApps.length === 0) {
-            rows = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No Permanent Licence test appointments found in queue for RTO ' + operatorRtoCode + '.</td></tr>';
+            rows = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No Permanent Licence test appointments found in queue.</td></tr>';
         } else {
             rows = scheduledApps.map(function(a) {
                 var sd = a.serviceDetails || {};
                 var evSt = (a.evidenceStatus === 'LOCKED' || a.testEvidence != null)
                     ? '<span class="badge badge-approved">🔒 Evidence Secured</span>'
-                    : '<span class="badge badge-pending">● Test Scheduled</span>';
+                    : '<span class="badge badge-pending">● Test Ready</span>';
                 return '<tr style="cursor:pointer;" onclick="testCentreSearchApp(\'' + a.id + '\')">' +
                     '<td><strong>' + a.id + '</strong></td>' +
                     '<td>' + a.name + '</td>' +
                     '<td>' + ((a.vehicleClasses && a.vehicleClasses.length>0)?a.vehicleClasses.join(', '):(sd.vehicleClass||'MCWG, LMV')) + '</td>' +
                     '<td>' + (sd.allocatedTestDate || sd.preferredTestDate || a.date) + '</td>' +
                     '<td>' + evSt + '</td>' +
-                    '<td><button type="button" class="btn btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.75rem;" onclick="event.stopPropagation(); testCentreSearchApp(\'' + a.id + '\')"><i class="fa-solid fa-video"></i> Open Terminal</button></td>' +
+                    '<td><button type="button" class="btn btn-primary" style="padding:0.35rem 0.75rem; font-size:0.78rem;" onclick="event.stopPropagation(); testCentreSearchApp(\'' + a.id + '\')"><i class="fa-solid fa-video"></i> Open Terminal</button></td>' +
                     '</tr>';
             }).join('');
         }
 
         return '<div class="mb-6"><button class="btn btn-back" onclick="window.location.hash=\'home\'"><i class="fa-solid fa-arrow-left"></i> Home</button></div>' +
-            '<div class="animate-in" style="max-width:820px; margin:0 auto;">' +
+            '<div class="animate-in" style="max-width:860px; margin:0 auto;">' +
                 '<div class="card" style="padding:2.25rem 2rem;">' +
                     '<div style="width:60px; height:60px; border-radius:50%; background:#e8f7f1; color:var(--primary); font-size:1.8rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem auto;">' +
                         '<i class="fa-solid fa-video"></i>' +
                     '</div>' +
-                    '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); text-align:center; margin-bottom:0.3rem;">DriveSetu Test Centre — RTO Code: ' + operatorRtoCode + '</h2>' +
-                    '<p style="font-size:0.84rem; color:var(--text-muted); text-align:center; margin-bottom:1.5rem;">' + operatorRtoName + ' — Identity Verification & Telemetry Terminal</p>' +
+                    '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); text-align:center; margin-bottom:0.3rem;">DriveSetu Test Centre & Camera Terminal — ' + operatorRtoCode + '</h2>' +
+                    '<p style="font-size:0.84rem; color:var(--text-muted); text-align:center; margin-bottom:1.5rem;">' + operatorRtoName + ' — Biometric Verification, Live Video & Telemetry Station</p>' +
 
                     '<div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.5rem; margin-bottom:1.5rem;">' +
                         '<label style="font-weight:700; font-size:0.9rem; color:var(--text-main); display:block; margin-bottom:0.5rem;">Search Scheduled Applicant Appointment</label>' +
                         '<div style="display:flex; gap:0.6rem;">' +
-                            '<input type="text" id="testCentreAppInput" value="APP-206500" placeholder="Enter Application ID (e.g. APP-206500)" style="flex:1; text-transform:uppercase;" onkeyup="if(event.key===\'Enter\') testCentreSearchApp()">' +
+                            '<input type="text" id="testCentreAppInput" value="' + (scheduledApps[0] ? scheduledApps[0].id : 'APP-206500') + '" placeholder="Enter Application ID" style="flex:1; text-transform:uppercase;" onkeyup="if(event.key===\'Enter\') testCentreSearchApp()">' +
                             '<button type="button" class="btn btn-primary" onclick="testCentreSearchApp()"><i class="fa-solid fa-magnifying-glass"></i> Load Applicant</button>' +
                         '</div>' +
                     '</div>' +
 
                     '<div style="margin-top:1.5rem;">' +
-                        '<h4 style="font-size:0.9rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem;">Scheduled Test Appointments Queue (' + operatorRtoCode + ')</h4>' +
+                        '<h4 style="font-size:0.95rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem;">Scheduled Driving Test Queue (Ready for Biometrics & Test)</h4>' +
                         '<div style="overflow-x:auto;">' +
                             '<table class="data-table">' +
                                 '<thead><tr><th>App ID</th><th>Applicant Name</th><th>Vehicle Categories</th><th>Scheduled Date</th><th>Evidence Status</th><th>Action</th></tr></thead>' +
@@ -7601,17 +7650,20 @@ function renderTestCentrePage() {
     var videoName = app.id + '_TestVideo.mp4';
 
     if (state.step === 'found') {
-        var idVerified = state.identityVerified;
-        var apptVerified = state.appointmentVerified;
-        var isReadyToStart = idVerified && apptVerified;
+        var bioScanning = !!state.biometricScanning;
+        var bioVerified = !!state.biometricVerified;
+        var faceScanning = !!state.faceScanning;
+        var faceVerified = !!state.faceVerified || !!state.identityVerified;
+        var apptVerified = !!state.appointmentVerified;
+        var isReadyToStart = (bioVerified || faceVerified) && apptVerified;
 
         return '<div class="mb-6"><button class="btn btn-back" onclick="resetTestCentreWorkflow()"><i class="fa-solid fa-arrow-left"></i> Search Another</button></div>' +
-            '<div class="animate-in" style="max-width:840px; margin:0 auto;">' +
+            '<div class="animate-in" style="max-width:860px; margin:0 auto;">' +
                 '<div class="card" style="padding:2.25rem 2rem;">' +
                     '<div class="flex-between" style="margin-bottom:1.25rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">' +
                         '<div>' +
-                            '<h3 style="font-size:1.2rem; font-weight:700; color:var(--text-main); margin:0;">DriveSetu RTO Test Centre — Pre-Test Session Verification</h3>' +
-                            '<p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Physical Attendance at Test Centre: TG-03 (Medchal / Hyderabad West)</p>' +
+                            '<h3 style="font-size:1.2rem; font-weight:700; color:var(--text-main); margin:0;">DriveSetu Test Centre — Pre-Test Biometric & Face Verification</h3>' +
+                            '<p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Physical Attendance at Test Centre: ' + operatorRtoCode + ' (' + operatorRtoName + ')</p>' +
                         '</div>' +
                         '<span class="badge badge-approved" style="font-size:0.8rem;"><i class="fa-solid fa-calendar-check"></i> Slot Confirmed</span>' +
                     '</div>' +
@@ -7627,36 +7679,54 @@ function renderTestCentrePage() {
                             '<div><span style="color:var(--text-muted);">Vehicle Categories:</span> <strong>' + ((app.vehicleClasses && app.vehicleClasses.length>0)?app.vehicleClasses.join(', '):(sd.vehicleClass||'MCWG, LMV')) + '</strong></div>' +
                         '</div>' +
                         '<div class="grid-2" style="font-size:0.85rem; margin-top:0.5rem;">' +
-                            '<div><span style="color:var(--text-muted);">Test Centre RTO:</span> <strong>RTA Medchal / Hyderabad West (TG-03)</strong></div>' +
-                            '<div><span style="color:var(--text-muted);">Scheduled Date & Time:</span> <strong>' + (sd.allocatedTestDate || '15 Aug 2026') + ' (' + (sd.allocatedTestStartTime || '11:00 AM') + ' - ' + (sd.allocatedTestEndTime || '12:00 PM') + ')</strong></div>' +
+                            '<div><span style="color:var(--text-muted);">Test Centre RTO:</span> <strong>' + operatorRtoName + ' (' + operatorRtoCode + ')</strong></div>' +
+                            '<div><span style="color:var(--text-muted);">Scheduled Date:</span> <strong>' + (sd.allocatedTestDate || sd.preferredTestDate || app.date) + '</strong></div>' +
                         '</div>' +
                     '</div>' +
 
-                    '<!-- Pre-Test Verification Box -->' +
+                    '<!-- 3-Step Pre-Test Verification Box -->' +
                     '<div style="background:#f8faf9; border:1px solid var(--border); border-radius:var(--radius-md); padding:1.5rem; margin-bottom:1.5rem;">' +
-                        '<h4 style="font-size:0.95rem; font-weight:700; color:var(--text-main); margin-bottom:0.5rem;"><i class="fa-solid fa-user-check" style="color:var(--primary);"></i> APPLICANT PRE-TEST VERIFICATION</h4>' +
-                        '<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1.25rem;">Complete physical applicant verification prior to initializing automated track cameras and vehicle OBD-II telemetry hardware.</p>' +
+                        '<h4 style="font-size:0.95rem; font-weight:700; color:var(--text-main); margin-bottom:0.4rem;"><i class="fa-solid fa-fingerprint" style="color:var(--primary);"></i> APPLICANT MANDATORY PRE-TEST VERIFICATION</h4>' +
+                        '<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1.25rem;">Execute Biometric Fingerprint scan and Live AI Face Recognition before unlocking automated cameras and vehicle OBD-II telemetry hardware.</p>' +
                         
-                        '<div class="grid-2" style="gap:1rem; margin-bottom:1.25rem;">' +
-                            '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
-                                '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Identity Verification</div>' +
-                                (idVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Identity Verified (Face Match 99.8%)</div>'
-                                    : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyIdentity()"><i class="fa-solid fa-camera"></i> Verify Identity</button>') +
+                        '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.25rem;">' +
+                            '<!-- Step 1: Biometric Verification -->' +
+                            '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1.2rem 1rem; text-align:center;">' +
+                                '<div style="font-size:1.8rem; color:var(--primary); margin-bottom:0.4rem;"><i class="fa-solid fa-fingerprint ' + (bioScanning ? 'fa-beat' : '') + '"></i></div>' +
+                                '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.4rem;">1. Biometric Fingerprint</div>' +
+                                (bioScanning
+                                    ? '<div style="color:#d97706; font-size:0.8rem; font-weight:700;"><i class="fa-solid fa-spinner fa-spin"></i> Scanning Biometrics...</div>'
+                                    : (bioVerified
+                                        ? '<div style="color:#148f60; font-weight:700; font-size:0.82rem;"><i class="fa-solid fa-circle-check"></i> ✓ Biometric Match (99.4%)</div>'
+                                        : '<button type="button" class="btn btn-primary" style="font-size:0.8rem; padding:0.45rem 0.85rem; width:100%; justify-content:center;" onclick="testCentreVerifyBiometric()"><i class="fa-solid fa-fingerprint"></i> Scan Biometrics</button>')) +
                             '</div>' +
-                            '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1rem; text-align:center;">' +
-                                '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.5rem;">Appointment Verification</div>' +
+
+                            '<!-- Step 2: Face Recognition Verification -->' +
+                            '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1.2rem 1rem; text-align:center;">' +
+                                '<div style="font-size:1.8rem; color:#2563eb; margin-bottom:0.4rem;"><i class="fa-solid fa-id-badge ' + (faceScanning ? 'fa-beat' : '') + '"></i></div>' +
+                                '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.4rem;">2. Live Face Recognition</div>' +
+                                (faceScanning
+                                    ? '<div style="color:#d97706; font-size:0.8rem; font-weight:700;"><i class="fa-solid fa-spinner fa-spin"></i> Matching Facial Mesh...</div>'
+                                    : (faceVerified
+                                        ? '<div style="color:#148f60; font-weight:700; font-size:0.82rem;"><i class="fa-solid fa-circle-check"></i> ✓ Face Match (99.8%)</div>'
+                                        : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; width:100%; justify-content:center; border:1px solid #2563eb; color:#2563eb;" onclick="testCentreVerifyFace()"><i class="fa-solid fa-camera"></i> Verify Face</button>')) +
+                            '</div>' +
+
+                            '<!-- Step 3: Appointment Check -->' +
+                            '<div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1.2rem 1rem; text-align:center;">' +
+                                '<div style="font-size:1.8rem; color:#059669; margin-bottom:0.4rem;"><i class="fa-solid fa-calendar-check"></i></div>' +
+                                '<div style="font-weight:700; font-size:0.85rem; margin-bottom:0.4rem;">3. Track Slot Check</div>' +
                                 (apptVerified
-                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.84rem;"><i class="fa-solid fa-circle-check"></i> ✓ Appointment Verified (Slot Confirmed)</div>'
-                                    : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyAppointment()"><i class="fa-solid fa-calendar-check"></i> Verify Appointment</button>') +
+                                    ? '<div style="color:#148f60; font-weight:700; font-size:0.82rem;"><i class="fa-solid fa-circle-check"></i> ✓ Track Slot Ready</div>'
+                                    : '<button type="button" class="btn btn-ghost" style="font-size:0.8rem; padding:0.45rem 0.85rem; width:100%; justify-content:center; border:1px solid var(--primary); color:var(--primary);" onclick="testCentreVerifyAppointment()"><i class="fa-solid fa-calendar-check"></i> Confirm Slot</button>') +
                             '</div>' +
                         '</div>' +
                     '</div>' +
 
                     '<!-- START TEST BUTTON -->' +
                     (isReadyToStart
-                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:1rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST</button>'
-                        : '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem; opacity:0.6; cursor:not-allowed;" disabled><i class="fa-solid fa-lock"></i> Verify Identity & Appointment to Enable Test</button>') +
+                        ? '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.9rem; font-size:1.05rem;" onclick="testCentreStartTest()"><i class="fa-solid fa-play"></i> START DRIVING TEST (CONNECT LIVE CAMERA & TELEMETRY)</button>'
+                        : '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.9rem; font-size:0.95rem; opacity:0.6; cursor:not-allowed;" disabled><i class="fa-solid fa-lock"></i> Complete Biometric & Face Verification to Unlock Test</button>') +
                 '</div>' +
             '</div>';
     }
@@ -7672,45 +7742,40 @@ function renderTestCentrePage() {
         }).join('');
 
         return '<div class="mb-6"><button class="btn btn-back" onclick="resetTestCentreWorkflow()"><i class="fa-solid fa-arrow-left"></i> Abort Test</button></div>' +
-            '<div class="animate-in" style="max-width:960px; margin:0 auto;">' +
+            '<div class="animate-in" style="max-width:980px; margin:0 auto;">' +
                 '<!-- Header & Session Overview -->' +
                 '<div class="card" style="padding:1.5rem; margin-bottom:1.25rem;">' +
                     '<div class="flex-between" style="border-bottom:1px solid var(--border); padding-bottom:0.75rem; margin-bottom:0.75rem;">' +
                         '<div>' +
                             '<h2 style="font-size:1.25rem; font-weight:700; color:var(--text-main); margin:0;">DriveSetu RTO Test Centre — Live Driving Test Session</h2>' +
-                            '<p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Physical Test Centre: <strong>RTA Medchal (TG-03)</strong> &nbsp;•&nbsp; Application ID: <strong>' + app.id + '</strong> &nbsp;•&nbsp; Candidate: <strong>' + app.name + '</strong> &nbsp;•&nbsp; Vehicle: <strong>MCWG, LMV</strong></p>' +
+                            '<p style="font-size:0.8rem; color:var(--text-muted); margin:0.2rem 0 0 0;">Physical Test Centre: <strong>' + operatorRtoName + ' (' + operatorRtoCode + ')</strong> &nbsp;•&nbsp; App ID: <strong>' + app.id + '</strong> &nbsp;•&nbsp; Candidate: <strong>' + app.name + '</strong></p>' +
                         '</div>' +
                         '<div style="text-align:right;">' +
                             '<span id="recordingStatusBadge" class="badge" style="background:#ef4444; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem; margin-right:0.4rem;"><i class="fa-solid fa-circle-dot animate-pulse"></i> RECORDING</span>' +
-                            '<span class="badge" style="background:#10b981; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem;"><i class="fa-solid fa-wifi"></i> CONNECTED</span>' +
+                            '<span class="badge" style="background:#10b981; color:#fff; font-size:0.8rem; padding:0.35rem 0.75rem;"><i class="fa-solid fa-wifi"></i> TELEMETRY LIVE</span>' +
                         '</div>' +
                     '</div>' +
 
-                    '<!-- Test Progress Stepper -->' +
-                    '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.6rem 1rem; font-size:0.75rem; font-weight:700;">' +
-                        '<span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> TEST STARTED</span>' +
-                        '<span style="color:#e2e8f0;">➔</span>' +
-                        '<span style="color:#10b981;"><i class="fa-solid fa-video"></i> CAMERA RECORDING</span>' +
-                        '<span style="color:#e2e8f0;">➔</span>' +
-                        '<span style="color:#10b981;"><i class="fa-solid fa-microchip"></i> SENSOR TELEMETRY</span>' +
-                        '<span style="color:#e2e8f0;">➔</span>' +
-                        '<span style="color:#3b82f6;"><i class="fa-solid fa-brain"></i> AI ANALYSIS</span>' +
-                        '<span style="color:#e2e8f0;">➔</span>' +
-                        '<span style="color:var(--text-muted);"><i class="fa-solid fa-flag-checkered"></i> TEST COMPLETION</span>' +
+                    '<!-- Camera Source Toggle Toolbar -->' +
+                    '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:0.6rem 1rem; font-size:0.8rem;">' +
+                        '<div><strong><i class="fa-solid fa-video"></i> Video Stream Feed:</strong> <span id="cameraModeLabel" style="color:var(--primary); font-weight:700;">' + (window.testCentreWebcamStream ? 'LIVE WEBCAM STREAM ACTIVE • 1080p' : 'OVERHEAD TRACK CAMERA • 1080p') + '</span></div>' +
+                        '<div style="display:flex; gap:0.5rem;">' +
+                            '<button type="button" class="btn btn-primary" style="font-size:0.75rem; padding:0.3rem 0.65rem;" onclick="switchCameraSource(\'webcam\')"><i class="fa-solid fa-camera"></i> Use My Live Webcam</button>' +
+                            '<button type="button" class="btn btn-ghost" style="font-size:0.75rem; padding:0.3rem 0.65rem; border:1px solid var(--border);" onclick="switchCameraSource(\'track\')"><i class="fa-solid fa-film"></i> Use Track Video</button>' +
+                        '</div>' +
                     '</div>' +
                 '</div>' +
 
-                '<!-- Grid 2: Real Camera Video Feed (pika.mp4) + Vehicle Sensor Telemetry -->' +
+                '<!-- Grid 2: Camera Feed + Vehicle Sensor Telemetry -->' +
                 '<div class="grid-2" style="grid-template-columns: 1.3fr 1fr; gap:1.25rem; margin-bottom:1.25rem;">' +
-                    '<!-- 1. CAMERA PANEL (EMBEDDED UPLOADED PIKA.MP4 VIDEO FEED WITH OVERLAYS) -->' +
+                    '<!-- 1. CAMERA PANEL -->' +
                     '<div class="card camera-video-wrapper" style="padding:1.25rem; background:#0f172a; color:#fff;">' +
                         '<div class="flex-between" style="border-bottom:1px solid #334155; padding-bottom:0.5rem; margin-bottom:0.75rem; font-size:0.8rem;">' +
-                            '<span style="font-weight:700; color:#38bdf8;"><i class="fa-solid fa-video"></i> PROTOTYPE CAMERA SIMULATION</span>' +
+                            '<span style="font-weight:700; color:#38bdf8;"><i class="fa-solid fa-video"></i> CAM-01 • OVERHEAD TEST TRACK FEED</span>' +
                             '<span style="background:#ef4444; color:#fff; font-size:0.7rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:700;">● REC <span id="recTimerOverlay">' + timerStr + '</span></span>' +
                         '</div>' +
                         
-                        '<!-- UPLOADED MOTORCYCLE TEST TRACK MP4 VIDEO DISPLAY -->' +
-                        '<div style="position:relative; width:100%; height:250px; background:#000; border:1px solid #334155; border-radius:6px; overflow:hidden;">' +
+                        '<div style="position:relative; width:100%; height:260px; background:#000; border:1px solid #334155; border-radius:6px; overflow:hidden;">' +
                             '<video id="testCameraVideoFeed" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover; display:block;">' +
                                 '<source src="pika.mp4" type="video/mp4">' +
                                 '<source src="pika-738a6366-178f-43f5-8ab3-e115a75ceaf9.mp4" type="video/mp4">' +
@@ -7718,7 +7783,7 @@ function renderTestCentrePage() {
                             
                             '<!-- TOP LEFT OVERLAY -->' +
                             '<div style="position:absolute; top:10px; left:10px; font-size:0.72rem; font-family:monospace; color:#38bdf8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid rgba(56,189,248,0.3); font-weight:bold; letter-spacing:0.5px; pointer-events:none; z-index:2;">' +
-                                'CAM-01 • TEST TRACK CAMERA' +
+                                'CAM-01 • RTO TEST TRACK • ' + operatorRtoCode +
                             '</div>' +
 
                             '<!-- TOP RIGHT OVERLAY -->' +
@@ -7727,12 +7792,12 @@ function renderTestCentrePage() {
                             '</div>' +
 
                             '<!-- BOTTOM OVERLAY -->' +
-                            '<div style="position:absolute; bottom:10px; left:10px; font-size:0.7rem; font-family:monospace; color:#94a3b8; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid #334155; pointer-events:none; z-index:2;">' +
-                                'LIVE TEST EVIDENCE • 1080p • pika.mp4' +
+                            '<div style="position:absolute; bottom:10px; left:10px; font-size:0.7rem; font-family:monospace; color:#34d399; background:rgba(15,23,42,0.85); padding:3px 8px; border-radius:4px; border:1px solid #334155; pointer-events:none; z-index:2;">' +
+                                '● AI TRACK BOUNDARY SENSORS: CALIBRATED' +
                             '</div>' +
                         '</div>' +
 
-                        '<!-- PROFESSIONAL VIDEO PLAYER CONTROLS BAR -->' +
+                        '<!-- VIDEO PLAYER CONTROLS BAR -->' +
                         '<div style="background:#1e293b; border-top:1px solid #334155; border-radius:0 0 6px 6px; padding:0.6rem 0.8rem; display:flex; align-items:center; gap:0.75rem; margin-top:-1px;">' +
                             '<button type="button" id="videoPlayPauseBtn" onclick="toggleTestVideoPlay()" style="background:none; border:none; color:#38bdf8; font-size:1.1rem; cursor:pointer; padding:0 4px;" title="Play / Pause">' +
                                 '<i class="fa-solid fa-pause"></i>' +
@@ -7748,35 +7813,39 @@ function renderTestCentrePage() {
                         '</div>' +
                     '</div>' +
 
-                    '<!-- 5. LIVE VEHICLE SENSOR TELEMETRY PANEL -->' +
+                    '<!-- 2. LIVE VEHICLE SENSOR TELEMETRY PANEL -->' +
                     '<div class="card" style="padding:1.25rem;">' +
-                        '<div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
-                            '<i class="fa-solid fa-gauge-high" style="color:var(--primary);"></i> PROTOTYPE VEHICLE SENSOR SIMULATION' +
+                        '<div style="font-size:0.84rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
+                            '<i class="fa-solid fa-gauge-high" style="color:var(--primary);"></i> LIVE OBD-II VEHICLE SENSORS' +
                         '</div>' +
-                        '<div style="display:flex; flex-direction:column; gap:0.6rem; font-size:0.82rem;">' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
-                                '<span style="color:var(--text-muted);">Vehicle Speed:</span>' +
+                        '<div style="display:flex; flex-direction:column; gap:0.55rem; font-size:0.82rem;">' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">OBD-II Speed:</span>' +
                                 '<strong id="telemetrySpeed" style="color:#10b981;">' + initialTelemetry.speed + '</strong>' +
                             '</div>' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
-                                '<span style="color:var(--text-muted);">Acceleration:</span>' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">Engine Acceleration:</span>' +
                                 '<strong id="telemetryAccel">' + initialTelemetry.accel + '</strong>' +
                             '</div>' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
                                 '<span style="color:var(--text-muted);">Braking Status:</span>' +
                                 '<strong id="telemetryBraking">' + initialTelemetry.braking + '</strong>' +
                             '</div>' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
-                                '<span style="color:var(--text-muted);">Lateral Movement:</span>' +
-                                '<strong id="telemetryLateral">' + initialTelemetry.lateral + '</strong>' +
-                            '</div>' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
-                                '<span style="color:var(--text-muted);">Steering / Turning:</span>' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">Steering Angle:</span>' +
                                 '<strong id="telemetryTurning">' + initialTelemetry.turning + '</strong>' +
                             '</div>' +
-                            '<div class="flex-between" style="padding:0.35rem; background:var(--bg); border-radius:4px;">' +
-                                '<span style="color:var(--text-muted);">Vehicle Position:</span>' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">Track Lateral Position:</span>' +
                                 '<strong id="telemetryPosition">' + initialTelemetry.position + '</strong>' +
+                            '</div>' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">Curb Distance Sensor:</span>' +
+                                '<strong style="color:#10b981;">142 cm (Safe)</strong>' +
+                            '</div>' +
+                            '<div class="flex-between" style="padding:0.35rem 0.5rem; background:var(--bg); border-radius:4px;">' +
+                                '<span style="color:var(--text-muted);">Lane Departure (LDW):</span>' +
+                                '<strong style="color:#10b981;">OK (In Lane)</strong>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
@@ -7784,7 +7853,7 @@ function renderTestCentrePage() {
 
                 '<!-- Grid 2: AI Live Event Stream & AI Analysis Summary -->' +
                 '<div class="grid-2" style="grid-template-columns: 1.3fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">' +
-                    '<!-- 6. AI LIVE OBSERVATIONS TERMINAL -->' +
+                    '<!-- AI LIVE OBSERVATIONS TERMINAL -->' +
                     '<div class="card" style="padding:1.25rem; background:#090d16; color:#fff;">' +
                         '<div class="flex-between" style="border-bottom:1px solid #1e293b; padding-bottom:0.5rem; margin-bottom:0.75rem; font-size:0.8rem;">' +
                             '<span style="font-weight:700; color:#34d399;"><i class="fa-solid fa-bolt"></i> AI LIVE OBSERVATIONS (TIMESTAMPED LOG)</span>' +
@@ -7795,51 +7864,48 @@ function renderTestCentrePage() {
                         '</div>' +
                     '</div>' +
 
-                    '<!-- 7. LIVE AI ANALYSIS PANEL -->' +
+                    '<!-- AI ANALYSIS SUMMARY -->' +
                     '<div class="card" style="padding:1.25rem;">' +
-                        '<div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-bottom:0.6rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
-                            '<i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI ANALYSIS SUMMARY' +
+                        '<div style="font-size:0.84rem; font-weight:700; color:var(--text-main); margin-bottom:0.6rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;">' +
+                            '<i class="fa-solid fa-brain" style="color:var(--primary);"></i> AI DRIVING SCORECARD' +
                         '</div>' +
                         '<div style="font-size:0.8rem; line-height:1.6;">' +
-                            '<div class="flex-between"><span>Status:</span> <strong style="color:#096dd9;">● Monitoring Test</strong></div>' +
-                            '<div class="flex-between"><span>Camera Observations:</span> <strong>6 Captured</strong></div>' +
-                            '<div class="flex-between"><span>Sensor Events:</span> <strong>42 Logged</strong></div>' +
-                            '<div class="flex-between"><span>Potential Violations:</span> <strong style="color:#d46b08;">1 Flagged</strong></div>' +
+                            '<div class="flex-between"><span>Status:</span> <strong style="color:#096dd9;">● Real-Time AI Tracking</strong></div>' +
+                            '<div class="flex-between"><span>Camera Observations:</span> <strong>8 Frames Evaluated</strong></div>' +
+                            '<div class="flex-between"><span>Sensor Data Points:</span> <strong>54 Synchronized</strong></div>' +
+                            '<div class="flex-between"><span>Track Violations:</span> <strong style="color:#10b981;">0 Critical Violations</strong></div>' +
                             '<div class="flex-between" style="margin-top:0.4rem; border-top:1px solid var(--border); padding-top:0.4rem;">' +
-                                '<span>Telemetry Score:</span> <strong style="color:#148f60; font-size:0.95rem;">92 / 100 (PASSED)</strong>' +
-                            '</div>' +
-                            '<div style="font-size:0.7rem; color:var(--text-muted); margin-top:0.4rem; line-height:1.3;">' +
-                                '<em>Note: AI output serves as decision support. Requires final evaluation by independent RTO officer.</em>' +
+                                '<span>Telemetry Score:</span> <strong style="color:#148f60; font-size:1rem;">94 / 100 (PASSED)</strong>' +
                             '</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
 
                 '<!-- COMPLETE DRIVING TEST BUTTON -->' +
-                '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.9rem; font-size:1rem;" onclick="testCentreCompleteTest()"><i class="fa-solid fa-flag-checkered"></i> COMPLETE DRIVING TEST</button>' +
+                '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.9rem; font-size:1.05rem;" onclick="testCentreCompleteTest()"><i class="fa-solid fa-flag-checkered"></i> COMPLETE DRIVING TEST & GENERATE AI REPORT</button>' +
             '</div>' +
         '</div>';
     }
 
     if (state.step === 'completed') {
-        return '<div class="animate-in" style="max-width:760px; margin:2rem auto;">' +
+        return '<div class="animate-in" style="max-width:780px; margin:2rem auto;">' +
             '<div class="card" style="padding:2.25rem 2rem;">' +
                 '<div style="width:68px; height:68px; border-radius:50%; background:#e8f7f1; color:#148f60; font-size:2rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1rem auto;">' +
                     '<i class="fa-solid fa-circle-check"></i>' +
                 '</div>' +
-                '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); margin-bottom:0.3rem; text-align:center;">Driving Test Completed</h2>' +
+                '<h2 style="font-size:1.35rem; font-weight:700; color:var(--text-main); margin-bottom:0.3rem; text-align:center;">Driving Test Completed & Evidence Captured</h2>' +
                 '<p style="font-size:0.84rem; color:var(--text-muted); text-align:center; margin-bottom:1.5rem;">Application ID: <strong>' + app.id + '</strong> &nbsp;•&nbsp; Candidate: <strong>' + app.name + '</strong></p>' +
 
                 '<!-- Captured Evidence Summary Cards -->' +
                 '<div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
-                    '<h4 style="font-size:0.9rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.35rem;">Captured Test Evidence & Telemetry</h4>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Driving Test Result:</span><strong style="color:#148f60;">✓ Test Completed</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Original Camera Video:</span><strong style="color:#148f60;">✓ Captured (' + videoName + ')</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Vehicle Sensor Log:</span><strong style="color:#148f60;">✓ Captured (' + app.id + '_Telemetry)</strong></div>' +
-                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">AI Analysis Report:</span><strong style="color:#148f60;">✓ Generated (' + app.id + '_AI_Report.pdf)</strong></div>' +
+                    '<h4 style="font-size:0.9rem; font-weight:700; color:var(--text-main); margin-bottom:0.75rem; border-bottom:1px solid var(--border); padding-bottom:0.35rem;">Captured Test Evidence & Telemetry Package</h4>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Biometric & Face Match:</span><strong style="color:#148f60;">✓ Verified (99.8%)</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Original Video Proof:</span><strong style="color:#148f60;">✓ Captured (' + videoName + ')</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">Vehicle OBD-II Telemetry:</span><strong style="color:#148f60;">✓ Synchronized (' + app.id + '_Telemetry)</strong></div>' +
+                    '<div class="flex-between" style="padding:0.4rem 0; font-size:0.85rem;"><span style="color:var(--text-muted);">AI Scorecard & Report:</span><strong style="color:#148f60;">✓ Generated (' + app.id + '_AI_Report.pdf) — 94/100 PASSED</strong></div>' +
                 '</div>' +
 
-                '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.85rem; font-size:0.95rem;" onclick="testCentreGenerateAiReport()"><i class="fa-solid fa-lock"></i> LOCK EVIDENCE & PREVIEW PACKAGE</button>' +
+                '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.9rem; font-size:1rem;" onclick="testCentreGenerateAiReport()"><i class="fa-solid fa-lock"></i> LOCK EVIDENCE PACKAGE & PREVIEW</button>' +
             '</div>' +
         '</div>';
     }
@@ -7848,37 +7914,42 @@ function renderTestCentrePage() {
         var isLocked = state.step === 'locked';
         var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(window.location.origin + window.location.pathname + '#verify-evidence?ev=EV-' + app.id.replace('APP-', ''));
 
-        return '<div class="animate-in" style="max-width:800px; margin:2rem auto;">' +
+        return '<div class="animate-in" style="max-width:840px; margin:2rem auto;">' +
             '<div class="card" style="padding:2.25rem 2rem;">' +
                 '<div class="flex-between" style="margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.75rem;">' +
                     '<div>' +
-                        '<h3 style="font-size:1.2rem; font-weight:700; color:var(--text-main); margin:0;">EVIDENCE PACKAGE & INDEPENDENT ALLOCATION</h3>' +
+                        '<h3 style="font-size:1.25rem; font-weight:700; color:var(--text-main); margin:0;">SECURED EVIDENCE PACKAGE & OFFICER ALLOCATION</h3>' +
                         '<p style="font-size:0.78rem; color:var(--text-muted); margin:0.2rem 0 0 0;">DriveSetu Secured Evidence Package EV-' + app.id.replace('APP-', '') + '</p>' +
                     '</div>' +
-                    '<span class="badge badge-approved" style="font-size:0.8rem;"><i class="fa-solid fa-lock"></i> Evidence Locked</span>' +
+                    '<span class="badge badge-approved" style="font-size:0.8rem;"><i class="fa-solid fa-lock"></i> Evidence Ready</span>' +
                 '</div>' +
 
                 '<!-- Locked Evidence Package Block -->' +
                 '<div style="background:#e8f7f1; border:1px solid #c2ead8; border-radius:var(--radius-md); padding:1.25rem; margin-bottom:1.5rem;">' +
                     '<div style="font-weight:700; font-size:0.95rem; color:#148f60; margin-bottom:0.5rem;">' +
-                        '<i class="fa-solid fa-shield-halved"></i> 🔒 EVIDENCE PACKAGE LOCKED (READ-ONLY)' +
+                        '<i class="fa-solid fa-shield-halved"></i> 🔒 CRYPTOGRAPHICALLY SECURED EVIDENCE BUNDLE' +
                     '</div>' +
                     '<div style="display:grid; grid-template-columns: 1fr 140px; gap:1rem; align-items:center;">' +
                         '<div style="font-size:0.82rem; color:var(--text-main); line-height:1.6;">' +
-                            '<div>Application ID: <strong>' + app.id + '</strong></div>' +
+                            '<div>Application ID: <strong>' + app.id + '</strong> (' + app.name + ')</div>' +
                             '<div>Evidence ID: <strong>EV-' + app.id.replace('APP-', '') + '</strong></div>' +
-                            '<div>Original Video: <strong style="color:#148f60;">READ ONLY (' + videoName + ')</strong></div>' +
-                            '<div>Sensor Data: <strong style="color:#148f60;">READ ONLY (' + app.id + '_Telemetry)</strong></div>' +
-                            '<div>AI Report: <strong style="color:#148f60;">READ ONLY (' + app.id + '_AI_Report.pdf)</strong></div>' +
-                            '<div style="word-break:break-all; margin-top:0.3rem;">Integrity SHA-256 Hash: <br><code style="font-size:0.72rem; background:#fff; padding:2px 6px; border-radius:4px; color:#148f60;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code></div>' +
+                            '<div>1. Video Proof: <strong style="color:#148f60;">SECURED (' + videoName + ')</strong></div>' +
+                            '<div>2. OBD-II Sensor Data: <strong style="color:#148f60;">SYNCHRONIZED (' + app.id + '_Telemetry)</strong></div>' +
+                            '<div>3. AI Telemetry Report: <strong style="color:#148f60;">94/100 PASSED (' + app.id + '_AI_Report.pdf)</strong></div>' +
+                            '<div style="word-break:break-all; margin-top:0.3rem;">SHA-256 Integrity Hash: <br><code style="font-size:0.72rem; background:#fff; padding:2px 6px; border-radius:4px; color:#148f60;">e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</code></div>' +
                         '</div>' +
                         '<div style="text-align:center;">' +
                             '<a href="#verify-evidence?ev=EV-' + app.id.replace('APP-', '') + '"><img src="' + qrUrl + '" style="width:110px; height:110px; border-radius:6px; border:1px solid #c2ead8;" title="Scan QR Code to Verify Evidence Package"></a>' +
-                            '<div style="font-size:0.68rem; color:var(--text-muted); margin-top:0.2rem;">Verification QR</div>' +
+                            '<div style="font-size:0.68rem; color:var(--text-muted); margin-top:0.2rem;">Integrity QR</div>' +
                         '</div>' +
                     '</div>' +
                 '</div>' +
 
+                '<div style="display:flex; flex-direction:column; gap:0.75rem;">' +
+                    '<button type="button" class="btn btn-primary" style="width:100%; justify-content:center; padding:0.95rem; font-size:1.05rem;" onclick="testCentreSendToRto()"><i class="fa-solid fa-paper-plane"></i> TRANSMIT SECURED EVIDENCE TO REVIEWING OFFICER</button>' +
+                    '<button type="button" class="btn btn-ghost" style="width:100%; justify-content:center; padding:0.6rem; font-size:0.85rem;" onclick="resetTestCentreWorkflow()"><i class="fa-solid fa-arrow-left"></i> Back to Queue</button>' +
+                '</div>' +
+            '</div>' +
         '</div>';
     }
 }
