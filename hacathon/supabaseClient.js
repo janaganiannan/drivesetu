@@ -732,14 +732,41 @@ async function authenticateOfficer(email, password) {
         } catch(e) {}
     }
 
+    try {
+        const { data: rtoInfoRow } = await supabaseClient
+            .from('rto_info')
+            .select('*')
+            .eq('officer_email', cleanEmail)
+            .maybeSingle();
+
+        if (rtoInfoRow) {
+            if (!officerProfile) officerProfile = {};
+            officerProfile.full_name = officerProfile.full_name || rtoInfoRow.officer_full_name;
+            officerProfile.rto_code = officerProfile.rto_code || rtoInfoRow.rto_code;
+            officerProfile.rto_name = officerProfile.rto_name || rtoInfoRow.rto_office_name;
+            officerProfile.designation = officerProfile.designation || rtoInfoRow.officer_designation;
+        }
+    } catch(e) {}
+
     const meta = user.user_metadata || {};
-    const role = (officerProfile && officerProfile.role) || meta.role || (cleanEmail === 'admin@drivesetu.com' ? 'ADMIN' : 'REVIEWING_OFFICER');
+    let rawRole = (officerProfile && officerProfile.role) || meta.role || '';
+    let des = ((officerProfile && officerProfile.designation) || meta.designation || '').toUpperCase();
+    
+    let normalizedRole = 'REVIEWING_OFFICER';
+    if (cleanEmail === 'admin@drivesetu.com' || rawRole === 'SUPER_ADMIN' || rawRole === 'ADMIN') {
+        normalizedRole = 'SUPER_ADMIN';
+    } else if (rawRole === 'TEST_CENTRE_OPERATOR' || rawRole.indexOf('OPERATOR') !== -1 || des.indexOf('OPERATOR') !== -1 || des.indexOf('TEST_CENTRE') !== -1 || des.indexOf('CAMERA') !== -1) {
+        normalizedRole = 'TEST_CENTRE_OPERATOR';
+    } else {
+        normalizedRole = 'REVIEWING_OFFICER';
+    }
 
     return {
         id: user.id,
         email: user.email,
         name: (officerProfile && officerProfile.full_name) || meta.full_name || cleanEmail.split('@')[0].toUpperCase(),
-        role: role,
+        role: normalizedRole,
+        designation: (officerProfile && officerProfile.designation) || meta.designation || (normalizedRole === 'TEST_CENTRE_OPERATOR' ? 'Test Centre Operator' : 'RTO Reviewing Officer'),
         rtoCode: (officerProfile && officerProfile.rto_code) || meta.rto_code || 'TG-03',
         rtoName: (officerProfile && officerProfile.rto_name) || 'RTA Telangana',
         officerId: (officerProfile && officerProfile.officer_id) || ('OFF-' + user.id.slice(-4)),

@@ -1519,12 +1519,14 @@ function render() {
     // Strict role-based profile display: Null if unauthenticated
     var userInfo = null;
     if (_rs && (isRTO || isTestCentre || isHome)) {
+        var isOp = _rs.role === 'TEST_CENTRE_OPERATOR' || (_rs.designation && _rs.designation.toUpperCase().indexOf('OPERATOR') !== -1) || (_rs.designation && _rs.designation.toUpperCase().indexOf('TEST_CENTRE') !== -1);
+        var isAdmin = _rs.role === 'SUPER_ADMIN' || _rs.role === 'ADMIN';
         userInfo = {
             initials: _rs.initials || 'RO',
             name: _rs.name || 'RTO Officer',
-            role: _rs.role === 'TEST_CENTRE_OPERATOR' ? ('Test Centre Operator (' + _rs.rtoCode + ')')
-                : _rs.role === 'REVIEWING_OFFICER' ? ('RTO Reviewing Officer (' + _rs.rtoCode + ')')
-                : 'System Administrative Authority'
+            role: isOp ? ('Test Centre Operator (' + (_rs.rtoCode || 'TG-03') + ')')
+                : isAdmin ? 'System Administrative Authority'
+                : ('RTO Reviewing Officer (' + (_rs.rtoCode || 'TG-03') + ')')
         };
     } else if (_cs) {
         userInfo = {
