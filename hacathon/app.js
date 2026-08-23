@@ -1424,7 +1424,7 @@ function render() {
     var isCitizenTrack = hash === '#citizen-track';
     var isPendingTasks = hash === '#pending-tasks';
     var isCitizenDrivingTest = hash === '#citizen-driving-test' || hash === '#upload-docs';
-    var isTestCentre = hash === '#test-centre';
+    var isTestCentre = hash === '#test-centre' || hash === '#test-camera' || hash === '#rto-camera' || hash === '#rto-test-camera' || hash === '#camera' || hash === '#rto-test';
     var isVerifyEvidence = hash.indexOf('#verify-evidence') === 0;
     var isCitizenLogin = hash === '#citizen-login';
     var isCitizenRegister = hash === '#citizen-register' || hash === '#register';
@@ -7341,6 +7341,22 @@ function testCentreSendToRto() {
     resetTestCentreWorkflow();
 }
 
+function quickLoginTestOperator(code) {
+    var rtoCode = code || 'TG-03';
+    var opSession = {
+        email: 'operator.' + rtoCode.toLowerCase().replace('-', '') + '@drivesetu.com',
+        name: rtoCode + ' Test Centre Operator',
+        role: 'TEST_CENTRE_OPERATOR',
+        rtoCode: rtoCode,
+        rtoName: 'RTA Test Centre (' + rtoCode + ')',
+        officerId: 'OP-' + rtoCode,
+        initials: 'OP'
+    };
+    sessionStorage.setItem('rtoSession', JSON.stringify(opSession));
+    window.location.hash = 'test-centre';
+    if (typeof render === 'function') render();
+}
+
 function renderTestCentrePage() {
     var _rsRaw = sessionStorage.getItem('rtoSession');
     var _rs = null;
@@ -7349,12 +7365,15 @@ function renderTestCentrePage() {
     }
 
     if (!_rs || _rs.role !== 'TEST_CENTRE_OPERATOR') {
-        return '<div class="animate-in" style="max-width:520px; margin:3rem auto; text-align:center;">' +
+        return '<div class="animate-in" style="max-width:540px; margin:3rem auto; text-align:center;">' +
             '<div class="card" style="padding:2.5rem 2rem;">' +
-                '<div style="width:70px; height:70px; border-radius:50%; background:#fff0f0; color:#c53030; font-size:2rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem auto;"><i class="fa-solid fa-shield-halved"></i></div>' +
-                '<h3 style="font-size:1.2rem; font-weight:700; color:var(--text-main); margin-bottom:0.5rem;">Test Centre Operator Login Required</h3>' +
-                '<p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.5;">This terminal is restricted to authorized Test Centre Operators. Please log in with your assigned Test Centre Operator credentials.</p>' +
-                '<button class="btn btn-primary" onclick="window.location.hash=\'rto-login\'"><i class="fa-solid fa-right-to-bracket"></i> Go to RTO Portal Login</button>' +
+                '<div style="width:70px; height:70px; border-radius:50%; background:#e8f7f1; color:var(--primary); font-size:2rem; display:flex; align-items:center; justify-content:center; margin:0 auto 1.25rem auto;"><i class="fa-solid fa-video"></i></div>' +
+                '<h3 style="font-size:1.25rem; font-weight:700; color:var(--text-main); margin-bottom:0.5rem;">RTO Test Camera & Telemetry Terminal</h3>' +
+                '<p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem; line-height:1.5;">This terminal is used at RTO driving test centres to record live overhead test track video, capture OBD-II vehicle telemetry, and lock SHA-256 evidence packages.</p>' +
+                '<div style="display:flex; flex-direction:column; gap:0.75rem;">' +
+                    '<button class="btn btn-primary" onclick="quickLoginTestOperator(\'TG-03\')"><i class="fa-solid fa-camera"></i> Launch TG-03 Camera Terminal (Demo)</button>' +
+                    '<button class="btn btn-ghost" onclick="window.location.hash=\'rto-login\'"><i class="fa-solid fa-right-to-bracket"></i> Login with Official Operator Account</button>' +
+                '</div>' +
             '</div>' +
         '</div>';
     }
